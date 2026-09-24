@@ -5,7 +5,6 @@ import ApplicationServices
 struct MenuBarItemInfo {
     let bundleIdentifier: String?
     let appName: String?
-    let pid: pid_t
     /// Accessibility coordinate space (origin at the top left).
     let frame: CGRect
 }
@@ -61,7 +60,6 @@ enum AccessibilityInventory {
                 guard let frame = frame(of: child) else { continue }
                 result.append(MenuBarItemInfo(bundleIdentifier: app.bundleIdentifier,
                                               appName: app.localizedName,
-                                              pid: app.processIdentifier,
                                               frame: frame))
             }
         }
@@ -73,7 +71,11 @@ enum AccessibilityInventory {
     private static func extrasMenuBar(of element: AXUIElement) -> AXUIElement? {
         var value: CFTypeRef?
         guard AXUIElementCopyAttributeValue(element, "AXExtrasMenuBar" as CFString, &value) == .success,
-              let bar = value else { return nil }
+              let bar = value,
+              // The attribute is undocumented and comes from an arbitrary process; check
+              // what it actually is before casting, or a surprise type is a crash rather
+              // than a skipped app.
+              CFGetTypeID(bar) == AXUIElementGetTypeID() else { return nil }
         return (bar as! AXUIElement)
     }
 

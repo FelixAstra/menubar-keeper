@@ -63,7 +63,10 @@ enum MenuBarScanner {
             aggregated[bundle] = (name: app?.localizedName ?? bundle, count: 0, leftmostX: nil)
         }
 
-        let ownBundle = Bundle.main.bundleIdentifier
+        // `FoldController.ownBundleID` rather than `Bundle.main.bundleIdentifier`: it
+        // carries a fallback, so "is this us?" cannot silently answer no and let the user
+        // mark the app's own icon for hiding.
+        let ownBundle = FoldController.ownBundleID
         let entries: [MenuBarAppEntry] = aggregated.map { bundle, info in
             let app = NSRunningApplication.runningApplications(withBundleIdentifier: bundle).first
             return MenuBarAppEntry(

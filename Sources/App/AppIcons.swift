@@ -31,9 +31,9 @@ enum AppIcons {
         return NSImage(contentsOf: url)
     }
 
-    /// Brand mark shown next to the title in the main window. Same artwork as the
-    /// menu bar icon but pinned to the collapsed variant — it is an identity mark,
-    /// not a state indicator.
+    /// Brand mark shown next to the title in the main window. Always the base
+    /// `MenuBarTemplate`, never a state variant: it is an identity mark, not a state
+    /// indicator.
     static func brandMark(size: NSSize = menuBarSize) -> NSImage? {
         guard let image = loadTemplate(named: "MenuBarTemplate")?.copy() as? NSImage else { return nil }
         image.size = size

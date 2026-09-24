@@ -267,9 +267,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let status = fold.isCollapsed
             ? L("help.status.collapsed", fold.hiddenBundles.count)
             : L("help.status.expanded")
+        // The parentheses are load-bearing: `??` binds looser than `+`, so written flat
+        // the last error would attach to the "unavailable" branch alone.
         let mechanism = fold.availabilityMessage.map { L("help.mechanism.unavailable", $0) }
-            ?? L("help.mechanism.available")
-            + (fold.lastError.map { L("help.mechanism.lastError", $0) } ?? "")
+            ?? (L("help.mechanism.available")
+                + (fold.lastError.map { L("help.mechanism.lastError", $0) } ?? ""))
 
         alert.informativeText = "\(status)\n\(mechanism)\n\n" + L("help.body")
         alert.addButton(withTitle: L("common.ok"))

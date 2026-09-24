@@ -34,7 +34,9 @@ final class FloatingBarController: NSObject {
     private var localMonitor: Any?
 
     /// Briefly ignores "outside" clicks right after opening, otherwise the click that
-    /// opened the bar would immediately close it.
+    /// opened the bar would immediately close it. Held on the monotonic clock
+    /// (`systemUptime`) rather than wall time, so a clock change cannot leave the window
+    /// wrong — it is an elapsed-time question, not a date one.
     private var ignoreOutsideClicksUntil: TimeInterval = 0
 
     /// While a context menu is open, clicks on it must not count as clicking outside —
@@ -74,7 +76,7 @@ final class FloatingBarController: NSObject {
     /// outside-click monitor does not close the bar immediately. `anchor` is that
     /// icon's frame in screen coordinates, used to hang the panel underneath it.
     func toggleFromStatusItem(anchor: NSRect?) {
-        ignoreOutsideClicksUntil = Date().timeIntervalSince1970 + 0.25
+        ignoreOutsideClicksUntil = ProcessInfo.processInfo.systemUptime + 0.25
         if anchor != nil { anchorFrame = anchor }
         toggle()
     }
@@ -535,7 +537,7 @@ final class FloatingBarController: NSObject {
         // the panel. Without this the panel is hidden here and then shown again by the
         // action, so a click appears to do nothing.
         if let rect = statusItemHitRect?(), rect.contains(NSEvent.mouseLocation) { return }
-        guard Date().timeIntervalSince1970 > ignoreOutsideClicksUntil else { return }
+        guard ProcessInfo.processInfo.systemUptime > ignoreOutsideClicksUntil else { return }
         hide()
     }
 }

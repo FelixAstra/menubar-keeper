@@ -33,12 +33,6 @@ final class MenuBarVisibility {
     /// clock and battery down with everything else.
     static let systemItemIDs: [Int] = Array(0...8)
 
-    /// Human-readable name for each system item ID.
-    static let systemItemNames = [
-        "Battery", "Bluetooth", "Clock", "Display", "Keyboard",
-        "Sound", "Wi-Fi", "Screen Mirroring", "Control Center",
-    ]
-
     private static let configurationClass = "MBAssessmentModeConfiguration"
     private static let assertionClass = "MBAssessmentModeAssertion"
 

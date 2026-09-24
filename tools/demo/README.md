@@ -23,6 +23,21 @@ node render.mjs frames --fps 20 --duration 13200 --scale 2   # 265 frames, about
 `render.mjs` also takes `--times 0,500,1000` for one-off frames, `--query cursor=0` to
 leave the pointer out, and `--scale 1` while iterating.
 
+### Checking that an edit changed nothing
+
+Pruning something from `sim/index.html` that is supposed to be inert is worth proving,
+because "unused" is easy to get wrong — the glyph table is referenced both by name and as
+`GLYPHS.<name>`, so a search for string literals misses half of it. Render a few frames
+from `HEAD` and from the working tree and compare them byte for byte:
+
+```bash
+mkdir -p /tmp/before && git show HEAD:tools/demo/sim/index.html > /tmp/before/index.html
+cp sim/pill.png sim/appicon.png sim/wallpaper.jpg /tmp/before/
+node render.mjs /tmp/after  --times 0,3000,9700,13400 --scale 1
+node render.mjs /tmp/before --times 0,3000,9700,13400 --scale 1 --sim /tmp/before
+md5 -q /tmp/before/*.png /tmp/after/*.png      # the two groups must agree, file by file
+```
+
 ## How the walkthrough is laid out
 
 `T` in `sim/index.html` is the timeline: every beat is a `[start, end]` pair in

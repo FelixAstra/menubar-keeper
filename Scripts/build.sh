@@ -21,11 +21,14 @@ set -euo pipefail
 
 NAME="MenuBarKeeper"
 SIGN_ID="MenuBarKeeper Local Signer"
-BUNDLE_ID="io.github.felixastra.MenuBarKeeper"
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 APP="$ROOT/build/$NAME.app"
 DEPLOYMENT_TARGET="14.0"
+
+# Read rather than repeated: the identifier is what an Accessibility grant is tied to,
+# and Info.plist is where the app itself gets it from. One source of truth.
+BUNDLE_ID="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$ROOT/Supporting/Info.plist")"
 
 ARCHS=("arm64" "x86_64")
 INSTALL=false

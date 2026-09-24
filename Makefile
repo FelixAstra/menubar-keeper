@@ -1,6 +1,5 @@
 NAME    := MenuBarKeeper
 VERSION := $(shell tr -d '[:space:]' < VERSION)
-ROOT    := $(shell pwd)
 
 .DEFAULT_GOAL := help
 
@@ -9,8 +8,8 @@ ROOT    := $(shell pwd)
 help: ## Show this help
 	@echo "$(NAME) $(VERSION)"
 	@echo
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
-		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*## .*$$' $(MAKEFILE_LIST) \
+		| awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-10s\033[0m %s\n", $$1, $$2}'
 
 build: ## Build a universal binary (arm64 + x86_64)
 	@./Scripts/build.sh
