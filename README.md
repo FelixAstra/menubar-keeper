@@ -78,6 +78,7 @@ documents cover the rest:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — modules and data flow
 - [docs/TECHNICAL-FINDINGS.md](docs/TECHNICAL-FINDINGS.md) — the reverse-engineered API notes and the pitfalls behind them
+- [docs/ROADMAP.md](docs/ROADMAP.md) — known gaps, and what is impossible rather than merely missing
 
 ## Limitations
 

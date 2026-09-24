@@ -35,6 +35,18 @@ jobs:
         id: version
         run: echo "value=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
 
+      # A tag that disagrees with VERSION ships a bundle claiming the wrong version, which
+      # is only noticed after the download. Fail here instead.
+      - name: Check that the tag matches VERSION
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          V="${{ steps.version.outputs.value }}"
+          if [ "${GITHUB_REF_NAME#v}" != "$V" ]; then
+            echo "::error::tag ${GITHUB_REF_NAME} does not match VERSION ($V)"
+            exit 1
+          fi
+          echo "tag ${GITHUB_REF_NAME} matches VERSION $V"
+
       - name: Build
         run: ./Scripts/build.sh
 
