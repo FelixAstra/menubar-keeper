@@ -94,9 +94,10 @@
 
   #dock {
     position: absolute;
-    left: 50%;
+    /* Centred by position in JS, not with translateX(-50%): the pointer has to
+       land on an icon's real box, and box measurements ignore transforms. */
+    left: 0;
     bottom: 9px;
-    transform: translateX(-50%);
     display: flex;
     align-items: flex-end;
     gap: 9px;
@@ -734,6 +735,10 @@ const ctxItems = [...$('ctxmenu').querySelectorAll('.ctx-item')];
  *  offsetLeft/offsetWidth deliberately ignore CSS transforms: `#window` and
  *  `#floating-bar` animate with `scale`, and layout-box measurements stay
  *  correct for the whole of those animations.
+ *
+ *  The flip side is that an element centred with `translateX(-50%)` reports a
+ *  box displaced by half its own width, so anything the pointer clicks is
+ *  centred by position instead — see `centreX`.
  */
 function boxOf(el) {
   let x = 0;
@@ -746,6 +751,18 @@ function boxOf(el) {
   const h = el.offsetHeight;
   return { x, y, w, h, cx: x + w / 2, cy: y + h / 2, bottom: y + h };
 }
+
+const SCREEN_WIDTH = 1280;
+
+/** Centres `el` horizontally by *position*, which keeps its layout box and its
+ *  visible box identical — the property `boxOf` depends on. */
+function centreX(el, width) {
+  el.style.left = `${Math.round((width - el.offsetWidth) / 2)}px`;
+}
+
+/* The Dock is laid out before anything is measured, because the pointer's first
+   stop is one of its icons. */
+centreX($('dock'), SCREEN_WIDTH);
 
 const geo = {
   dockKeeper: boxOf($('dock-keeper')),
@@ -765,8 +782,6 @@ const ctxItemBoxes = ctxItems.map((el) => ({ x: el.offsetLeft, y: el.offsetTop, 
 const ctxMenuWidth = ctxMenuEl.offsetWidth;
 ctxMenuEl.style.display = 'none';
 ctxMenuEl.style.visibility = '';
-
-const SCREEN_WIDTH = 1280;
 
 /** Centres the bar under the menu bar icon by *position* rather than with a
  *  translate: `boxOf` reads layout boxes, and a translate would therefore be

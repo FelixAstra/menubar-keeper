@@ -4,7 +4,7 @@
 
 [**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文
 
-<img src="docs/images/menu-bar.png?v=2" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
+<img src="docs/images/menu-bar.png?v=3" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
 
 ## Download
 
@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the capsule and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=3" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the capsule and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 

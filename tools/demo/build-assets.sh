@@ -24,8 +24,10 @@ ffmpeg -y -hide_banner -loglevel error "${INPUT[@]}" \
 # --- GIF: one palette for the whole clip, then a two-pass encode -------------
 # Feeding the same scaled stream to palettegen and paletteuse in one filtergraph
 # keeps the palette global, which is what stops the background from shimmering.
+# 16 fps holds the dock bounce and the window zoom together; 20 fps costs twice
+# the bytes for a difference that is invisible at README width.
 ffmpeg -y -hide_banner -loglevel error "${INPUT[@]}" \
-  -vf "fps=12.5,scale=1040:650:flags=lanczos,split[a][b];\
+  -vf "fps=16,scale=1040:650:flags=lanczos,split[a][b];\
 [a]palettegen=max_colors=192:stats_mode=diff[p];\
 [b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
   -loop 0 "$OUT/demo.gif"

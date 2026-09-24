@@ -11,6 +11,9 @@
 #
 set -euo pipefail
 
+# `render.mjs` is resolved relative to this script, not to the caller's cwd.
+cd "$(dirname "$0")"
+
 FRAMES="${1:-frames}"
 OUT="${2:-../docs/images/menu-bar.png}"
 AT=8400

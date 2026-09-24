@@ -36,8 +36,10 @@ Two details worth knowing before changing anything:
   `transform-origin` is computed from measured geometry, not hard-coded.
 - **`boxOf()` measures layout boxes, not `getBoundingClientRect`.** The window and the
   floating bar animate with `scale`, and a transform-aware measurement would move every
-  cursor target while they do. For the same reason the floating bar is centred under the
-  menu bar icon by `left`, not by `translateX(-50%)`.
+  cursor target while they do. The flip side is that anything the pointer has to hit must
+  be centred by *position* — `centreX()` — and never with `translateX(-50%)`, because a
+  translate is invisible to `boxOf`. The dock was centred that way once, which put every
+  dock-landing click 255 pt to the right of its icon, out on the wallpaper.
 
 ## Assets in `sim/`
 

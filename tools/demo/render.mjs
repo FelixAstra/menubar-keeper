@@ -58,8 +58,23 @@ tab.on('console', (m) => { if (m.type() === 'error') problems.push(m.text()); })
 const started = Date.now();
 let done = 0;
 
+/** Rarely, a `file://` navigation stalls and playwright gives up on it. The page
+ *  is stateless, so simply asking again is safe and keeps a long run alive. */
+async function goto(t) {
+  const url = 'file://' + join(simDir, page) + '?t=' + t + (extraQuery ? '&' + extraQuery : '');
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await tab.goto(url, { waitUntil: 'load', timeout: 20000 });
+      return;
+    } catch (err) {
+      if (attempt === 3) throw err;
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+}
+
 for (const t of times) {
-  await tab.goto('file://' + join(simDir, page) + '?t=' + t + (extraQuery ? '&' + extraQuery : ''), { waitUntil: 'load' });
+  await goto(t);
   const state = await tab.evaluate(() => ({
     ready: document.documentElement.dataset.ready || '',
     error: document.documentElement.dataset.error || '',
