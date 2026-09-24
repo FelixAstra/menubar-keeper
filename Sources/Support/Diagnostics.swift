@@ -47,6 +47,9 @@ final class Diagnostics {
         schedule(after: 2.0, when: "toggletest") { [weak self] in
             self?.runToggleCheck()
         }
+        schedule(after: 2.5, when: "releasecheck") { [weak self] in
+            self?.runReleaseCheck()
+        }
         schedule(after: 3.0, when: "verify") { [weak self] in
             self?.runFoldVerification()
         }
@@ -75,7 +78,12 @@ final class Diagnostics {
         report("[selftest] version=\(Bundle.main.shortVersion) (\(Bundle.main.buildVersion))")
         report("[selftest] language=\(L10n.effectiveCode) override=\(L10n.language.rawValue)")
         report("[selftest] hiddenBundles=\(defaults.stringArray(forKey: keys.hidden) ?? [])")
-        report("[selftest] collapseOnLaunch=\(defaults.bool(forKey: keys.collapseOnLaunch))")
+        report("[selftest] releasedBundles=\(defaults.stringArray(forKey: keys.released) ?? [])")
+        // The effective value, not the raw key: auto-fold is registered as defaulting
+        // to true, so an absent key means "on" and reporting `bool(forKey:)` would
+        // contradict what the app actually does.
+        report("[selftest] collapseOnLaunch=\(fold.collapsesOnLaunch) "
+               + "rawKey=\(defaults.bool(forKey: keys.collapseOnLaunch))")
         report("[selftest] foldedApps=\(fold.foldedApplications.compactMap(\.bundleIdentifier))")
         report("[selftest] isCollapsed=\(fold.isCollapsed)")
         report("[selftest] mechanismAvailable=\(fold.isMechanismAvailable)")
@@ -113,7 +121,7 @@ final class Diagnostics {
     /// makes the result checkable without looking at the screen, which matters
     /// because hidden status items cannot be screenshotted reliably.
     private func runFoldVerification() {
-        let original = fold.hiddenBundles
+        let original = fold.selection
         let before = MenuBarScanner.scan()
         report("[verify] before: \(before.count) visible, self visible="
                + "\(before.first { $0.isSelf }?.isObservable ?? false)")
@@ -150,8 +158,12 @@ final class Diagnostics {
 
                     self.fold.restore()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
-                        for bundle in original { self.fold.setHidden(true, for: bundle) }
-                        self.report("[verify] restored: \(original.sorted())")
+                        // Restore the captured selection whole. Putting back only what
+                        // was hidden would leave the app this test selected behind in
+                        // the user's selection — the test must leave no trace.
+                        self.fold.setSelection(original)
+                        self.report("[verify] restored: hidden=\(original.hidden.sorted()) "
+                                    + "released=\(original.released.sorted())")
                     }
                 }
             }
@@ -165,6 +177,40 @@ final class Diagnostics {
     }
 
     // MARK: - Interaction probes
+
+    /// Walks one app through select → release and reports whether the release was
+    /// recorded.
+    ///
+    /// That record is what stops the next launch's auto-detection from folding the app
+    /// straight back in, so it is worth exercising rather than inferring. Leaves the app
+    /// released, which is the state a released app is supposed to be in.
+    private func runReleaseCheck() {
+        let before = MenuBarScanner.scan()
+        guard let target = before.first(where: { $0.canFold && $0.isObservable })?.bundleIdentifier
+                ?? fold.hiddenBundles.subtracting(fold.releasedBundles).sorted().first else {
+            report("[release] no suitable target, skipping")
+            return
+        }
+        report("[release] target=\(target)")
+
+        fold.setHidden(true, for: target)
+        report("[release] after select: hidden=\(fold.hiddenBundles.contains(target)) "
+               + "released=\(fold.releasedBundles.contains(target))  ← expect true false")
+
+        after(0.6) { [weak self] in
+            guard let self else { return }
+            self.fold.setHidden(false, for: target)
+            self.report("[release] after release: hidden=\(self.fold.hiddenBundles.contains(target)) "
+                        + "released=\(self.fold.releasedBundles.contains(target))  ← expect false true")
+            let defaults = UserDefaults.standard
+            self.report("[release] persisted hidden="
+                        + "\(defaults.stringArray(forKey: FoldController.Keys.hidden) ?? [])")
+            self.report("[release] persisted released="
+                        + "\(defaults.stringArray(forKey: FoldController.Keys.released) ?? [])")
+            self.report("[release] isCollapsed=\(self.fold.isCollapsed) "
+                        + "lastError=\(self.fold.lastError ?? "nil")")
+        }
+    }
 
     /// Clicks the status item three times and asserts the floating bar toggles.
     ///

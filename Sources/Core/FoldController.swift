@@ -31,12 +31,26 @@ final class FoldController {
     enum Keys {
         static let hidden = "MenuBarKeeper.hiddenBundles"
         static let collapseOnLaunch = "MenuBarKeeper.collapseOnLaunch"
+        static let released = "MenuBarKeeper.releasedBundles"
+    }
+
+    /// The whole selection, so a caller can capture it and put it back exactly as it
+    /// was. Auto-detection computes a complete selection rather than a single edit,
+    /// and the self-test has to leave no trace behind.
+    struct Selection: Equatable {
+        let hidden: Set<String>
+        let released: Set<String>
     }
 
     // MARK: - Public state
 
     /// Apps moved into the hidden area (persisted).
     private(set) var hiddenBundles: Set<String> = []
+
+    /// Apps the user took back out by hand. Auto-detection subtracts these, so
+    /// releasing an app once is enough to keep it out on every later launch instead
+    /// of having the next scan fold it straight back in.
+    private(set) var releasedBundles: Set<String> = []
 
     /// Whether the hidden area is currently collapsed.
     private(set) var isCollapsed = false
@@ -77,7 +91,16 @@ final class FoldController {
     private var resyncWorkItem: DispatchWorkItem?
 
     private init() {
+        // Auto-fold is the whole point of the app, so it is on unless the user turns it
+        // off. Registering the default is what makes that true: `bool(forKey:)` answers
+        // false for an absent key, which would silently mean "off" for everyone.
+        UserDefaults.standard.register(defaults: [Keys.collapseOnLaunch: true])
+
         hiddenBundles = Set(UserDefaults.standard.stringArray(forKey: Keys.hidden) ?? [])
+        releasedBundles = Set(UserDefaults.standard.stringArray(forKey: Keys.released) ?? [])
+        // A bundle cannot be selected and released at the same time; a stale pair from
+        // an older build would make the launch scan's result depend on key order.
+        hiddenBundles.subtract(releasedBundles)
         // MenuBarKeeper never hides itself, or it would take away its own controls.
         hiddenBundles.remove(Self.ownBundleID)
         observeWorkspace()
@@ -87,13 +110,20 @@ final class FoldController {
 
     func isHidden(_ bundle: String) -> Bool { hiddenBundles.contains(bundle) }
 
+    var selection: Selection { Selection(hidden: hiddenBundles, released: releasedBundles) }
+
     /// Moves an app into or out of the hidden area. Applies immediately.
     func setHidden(_ hidden: Bool, for bundle: String) {
         guard !bundle.isEmpty, bundle != Self.ownBundleID else { return }
         if hidden {
             hiddenBundles.insert(bundle)
+            // Re-selecting clears an earlier release: the user asked for it back in.
+            releasedBundles.remove(bundle)
         } else {
             hiddenBundles.remove(bundle)
+            // Remember the release. Without this the next launch's scan would find the
+            // app still sitting on the menu bar and quietly fold it in again.
+            releasedBundles.insert(bundle)
         }
         persist()
         // With nothing selected there is no reason to keep holding a restriction.
@@ -101,8 +131,23 @@ final class FoldController {
         onStateChange?()
     }
 
+    /// Replaces the whole selection at once, then applies it.
+    ///
+    /// Used by auto-detection, which derives a complete selection from a scan, and by
+    /// the self-test, which must restore exactly what it found.
+    func setSelection(_ selection: Selection) {
+        hiddenBundles = selection.hidden.subtracting([Self.ownBundleID])
+        releasedBundles = selection.released.subtracting([Self.ownBundleID])
+        hiddenBundles.subtract(releasedBundles)
+        persist()
+        hiddenBundles.isEmpty ? restore() : collapse()
+        onStateChange?()
+    }
+
     private func persist() {
-        UserDefaults.standard.set(Array(hiddenBundles).sorted(), forKey: Keys.hidden)
+        let defaults = UserDefaults.standard
+        defaults.set(Array(hiddenBundles).sorted(), forKey: Keys.hidden)
+        defaults.set(Array(releasedBundles).sorted(), forKey: Keys.released)
     }
 
     // MARK: - Collapse / restore
@@ -137,10 +182,56 @@ final class FoldController {
         DispatchQueue.main.asyncAfter(deadline: .now() + seconds, execute: work)
     }
 
-    /// Applies the saved selection at launch, if the user asked for that.
+    // MARK: - Automatic detection at launch
+
+    /// Applies the launch state.
+    ///
+    /// With auto-fold on — the default — this is where the app earns its name: scan the
+    /// menu bar, treat every app that can be hidden as selected, and collapse. Apps the
+    /// user released by hand are subtracted, so a single release is enough to keep an app
+    /// out of every later scan.
     func prepareOnLaunch() {
-        guard collapsesOnLaunch, !hiddenBundles.isEmpty else { return }
-        collapse()
+        guard collapsesOnLaunch else { return }
+
+        // Refusing to auto-fold from outside /Applications is a safety rule, not
+        // tidiness. Hiding icons is only safe when the system protects this app's own
+        // status item, and it only does that for apps in a standard location — so
+        // folding automatically from a checkout would take away the user's only control
+        // before they had a chance to react.
+        guard Installation.isInApplications else {
+            DebugLog.write("[launch] auto-fold skipped: not running from "
+                           + Installation.applicationsDirectory, when: "launch")
+            return
+        }
+
+        // The scan walks the accessibility tree of every running app and takes the best
+        // part of a second, so it never runs on the main thread.
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let detected = MenuBarScanner.scan()
+                .filter { $0.canFold && $0.isObservable }
+                .map(\.bundleIdentifier)
+            DispatchQueue.main.async {
+                self?.adoptDetected(Set(detected))
+            }
+        }
+    }
+
+    /// Merges what the scan found into the selection and collapses.
+    private func adoptDetected(_ detected: Set<String>) {
+        // Union rather than replace: an app selected earlier but not running right now
+        // has to stay selected, so it is folded the moment it comes back. The submitted
+        // configuration is intersected with what is running, so the extra entries cost
+        // nothing until then. The subtraction is what makes a release stick.
+        let next = detected.union(hiddenBundles).subtracting(releasedBundles)
+        guard !next.isEmpty else {
+            DebugLog.write("[launch] auto-fold found nothing to hide", when: "launch")
+            return
+        }
+        DebugLog.write("[launch] detected \(detected.sorted()) → selection \(next.sorted())",
+                       when: "launch")
+        // Goes through the same applier as everything else, so the selection is
+        // persisted, submitted and announced by exactly one code path.
+        setSelection(Selection(hidden: next, released: releasedBundles))
     }
 
     /// Always restores before quitting — the menu bar is never left restricted.

@@ -57,7 +57,7 @@
 "help.mechanism.unavailable" = "Hiding engine: unavailable — %@";
 "help.mechanism.available" = "Hiding engine: available";
 "help.mechanism.lastError" = " (last request rejected: %@)";
-"help.body" = "What it does\nGroups menu bar icons by app. Apps you select are moved into a hidden area — their icons leave the menu bar and come back on demand.\n\nGetting started\n1. Grant Accessibility permission on first launch. It is used only to identify which app owns each icon. Nothing is recorded or uploaded.\n2. Click any row to select an app. Its icons disappear from the menu bar immediately, and your selection is remembered.\n3. Left-click the menu bar icon to reveal the hidden icons just below it; click again to put them back.\n4. On the floating bar:\n   · click an icon — switch to that app\n   · right-click an icon — open, preferences, restore to menu bar, hide, quit, force quit\n   · click the arrow — show or hide the menu bar (the same button toggles both ways)\n   · click the MenuBarKeeper icon — open the main window\n5. Turn on \"Hide on launch\" to apply your selection automatically at startup.\n\nKeyboard shortcuts (work even while icons are hidden)\n⌥⌘M   reveal or hide the floating bar\n⌥⌘\\   hide or show menu bar icons\n\nThree notes\n· Hidden apps keep running. Only the icon is hidden, nothing else changes.\n· Once an icon is hidden, macOS no longer exposes it, so the app's own menu is out of reach. Use \"Restore to menu bar\" on the floating bar to bring a single icon back and use its menu normally.\n· System items (clock, battery, Control Center) are never hidden.";
+"help.body" = "What it does\nGroups menu bar icons by app. Apps you select are moved into a hidden area — their icons leave the menu bar and come back on demand.\n\nGetting started\n1. Grant Accessibility permission on first launch. It is used only to identify which app owns each icon. Nothing is recorded or uploaded.\n2. Click any row to select an app. Its icons disappear from the menu bar immediately, and your selection is remembered.\n3. Left-click the menu bar icon to reveal the hidden icons just below it; click again to put them back.\n4. On the floating bar:\n   · click an icon — switch to that app\n   · right-click an icon — open, preferences, restore to menu bar, hide, quit, force quit\n   · click the arrow — show or hide the menu bar (the same button toggles both ways)\n   · click the MenuBarKeeper icon — open the main window\n5. \"Detect and hide on launch\" is on by default, so every app that can be hidden is folded at startup; one you restore by hand is left alone from then on.\n\nKeyboard shortcuts (work even while icons are hidden)\n⌥⌘M   reveal or hide the floating bar\n⌥⌘\\   hide or show menu bar icons\n\nThree notes\n· Hidden apps keep running. Only the icon is hidden, nothing else changes.\n· Once an icon is hidden, macOS no longer exposes it, so the app's own menu is out of reach. Use \"Restore to menu bar\" on the floating bar to bring a single icon back and use its menu normally.\n· System items (clock, battery, Control Center) are never hidden.";
 
 /* MARK: - Main window */
 
@@ -78,11 +78,11 @@
 "window.summary.noPermission" = "Accessibility permission is required to read which app owns each menu bar icon.";
 "window.summary.count" = "The menu bar shows %d icons from %d apps (%d can be hidden)";
 
-"window.hint" = "Selecting a row hides that app's menu bar icon right away. Use \"Show all\" any time to take a look.";
+"window.hint" = "Selecting a row hides that app's icon right away; deselecting puts it back and keeps it out of the next launch's scan. Use \"Show all\" to take a look.";
 "window.empty" = "No app is currently using the menu bar.\nIf MenuBarKeeper is already ticked in System Settings, quit and reopen it, then try again.";
 
-"window.autoCollapse" = "Hide on launch";
-"window.autoCollapse.tooltip" = "When enabled, your selection is applied automatically when MenuBarKeeper starts.";
+"window.autoCollapse" = "Detect and hide on launch";
+"window.autoCollapse.tooltip" = "On by default. At startup MenuBarKeeper scans the menu bar and hides every app on it that can be hidden. An app you restore by hand stays out — the next scan will not hide it again.";
 
 "window.refresh" = "Refresh";
 "window.expandAll" = "Show all";

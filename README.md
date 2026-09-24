@@ -27,12 +27,21 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 | | |
 |---|---|
 | **See** | Every menu bar icon, grouped by the app that owns it |
-| **Hide** | Tick an app and its icon leaves the menu bar — remembered across launches |
+| **Hide** | On launch it hides every app it finds on the menu bar — nothing to set up |
 | **Reach** | Click the menu bar icon and the hidden ones drop down right underneath it |
 | **Act** | Right-click a hidden icon to open, quit, or send the app back to the menu bar |
 | **Undo** | *Show all* restores everything; quitting the app always does too |
 
 Hidden apps keep running. Only the icon goes away.
+
+### What happens on launch
+
+MenuBarKeeper scans the menu bar and hides **every app it can hide**, so the bar is clean
+without you picking anything. Anything you send back stays back: the release is remembered, and
+no later scan will hide that app again. Unchecking *Detect and hide on launch* in the window
+stops the scan, leaving only the apps you ticked by hand.
+
+The scan is skipped if the app is not running from `/Applications` — see below.
 
 ## Usage
 
@@ -40,7 +49,7 @@ Hidden apps keep running. Only the icon goes away.
 |---|---|
 | Click the menu bar icon | Show / hide the floating bar of hidden icons |
 | Right-click it (or ⌥-click) | Menu: expand all, permissions, help, quit |
-| Click a row in the window | Hide / unhide that app |
+| Click a row in the window | Hide / unhide that app — an app you unhide is not auto-hidden again |
 | Right-click an icon in the floating bar | Open, Preferences, Hide, Put back, Quit |
 | ⌥⌘M | Show / hide the floating bar |
 | ⌥⌘\\ | Collapse / expand the menu bar |
