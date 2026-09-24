@@ -19,6 +19,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Fixed
 
+- **The app list rendered as a single line.** The scroll view's document view and the stack
+  holding the rows never had `translatesAutoresizingMaskIntoConstraints` switched off, so
+  every constraint naming them was silently ignored: both stayed 0×0 and all eleven rows
+  were laid out on the same coordinates, drawing on top of one another with their titles
+  squeezed to nothing. Nothing was logged — a view with that flag on has handed its frame
+  back to its superview, so there is no frame for the engine to report a conflict about.
+- Rows in the list did not span the window, so the checkbox sat immediately after the app
+  name (and, once the rows were real, hard against the right edge in a ragged column).
+  `NSStackView.alignment = .width` — the value that reads as "fill the width" — is not
+  stored on this SDK, so each row is now pinned to the stack's width explicitly.
+- Every control inside a row bunched against its leading edge, leaving the slack as empty
+  space. `NSStackView` still defaults to `.gravityAreas`, which packs without stretching;
+  the row now uses `.fill`, which hands the slack to the text stack.
+- The window grew wider than its design size as soon as the list reported real widths. The
+  content view's size was pinned as a floor, and AppKit sizes a window to its content view's
+  fitting size — a floor can only raise that, never cap it, so the mechanism label's full
+  sentence stretched the window to 651 pt. The size is now pinned exactly.
+- The window could greet you with *"It does not look applied — N selected apps are still on
+  the menu bar. Check that Accessibility permission is enabled"* when nothing was wrong. The
+  system applies a hide a second or two after the submission, so the scan taken right after
+  it still saw the icons; the window now rechecks once before saying so.
 - Automatic detection is skipped when the app is not running from `/Applications`. The system
   only protects a status item belonging to an app in a standard location, so hiding everything
   automatically from a checkout would hide the app's own icon too and leave no way back — a
@@ -33,6 +54,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- Two probes make window bugs checkable without a screenshot: `layoutdump` logs the list's
+  real geometry (frames, whether each view is managed by Auto Layout), and `windowshot`
+  renders the window straight from the view hierarchy to `/tmp/menubarkeeper-window.png`
+  without needing Screen Recording permission. Both found defects that looked like nothing
+  at all on screen — eleven rows on one set of coordinates draw as one row.
 - The README's imagery is rendered rather than screen-captured, and its generator lives
   in [`tools/demo`](tools/demo): a menu bar banner that shows the floating bar in place,
   and a walkthrough animation covering selection, hiding, revealing, the per-icon context

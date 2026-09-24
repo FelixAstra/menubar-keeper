@@ -50,6 +50,12 @@ final class AppRowView: NSView {
         let row = NSStackView(views: [iconView, textStack, meta, markCheckbox])
         row.orientation = .horizontal
         row.alignment = .centerY
+        // Not the default. `NSStackView` still defaults to `.gravityAreas`, which only packs
+        // the views and never stretches one — so the slack width stayed as empty space after
+        // the checkbox instead of being absorbed by the text stack, and every control sat
+        // bunched against the left edge. `.fill` hands the slack to the view with the lowest
+        // hugging priority, which is the text stack.
+        row.distribution = .fill
         row.spacing = Metrics.spacing
         row.translatesAutoresizingMaskIntoConstraints = false
         addSubview(row)

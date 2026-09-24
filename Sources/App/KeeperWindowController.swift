@@ -44,6 +44,8 @@ final class KeeperWindowController: NSObject {
     private var rows: [AppRowView] = []
     private var lastEntries: [MenuBarAppEntry] = []
     private var isScanning = false
+    /// Guards the single extra scan that follows a submission. See `recheckAfterCollapse`.
+    private var didRecheck = false
 
     override init() {
         window = NSWindow(contentRect: NSRect(origin: .zero, size: Metrics.windowSize),
@@ -78,6 +80,9 @@ final class KeeperWindowController: NSObject {
     /// Called by `AppDelegate` when the collapsed state changes. A single owner for the
     /// state-change callback avoids the two of them overwriting each other.
     func syncFromModel() {
+        // Any new submission — at launch, from a hot key, or from this window — earns a
+        // fresh verification scan. See `recheckAfterCollapse`.
+        didRecheck = false
         syncControls()
     }
 
@@ -99,15 +104,16 @@ final class KeeperWindowController: NSObject {
         let content = NSView()
         window.contentView = content
 
-        // This floor is what actually decides the window's size. AppKit sizes a window to
-        // its content view's *fitting* size, and the fitting size is the smallest box that
-        // satisfies the required constraints — with a width chain made of truncating labels
-        // and a scroll view, that resolves to ~86 pt and the window collapses. Pinning a
-        // required floor makes the fitting size equal the intended size, so everything
-        // agrees and nothing has to be broken at layout time.
+        // The window's size is pinned exactly, not floored. AppKit sizes a window to its
+        // content view's *fitting* size, and a floor only raises that — it cannot lower it.
+        // So any subview that prefers more room than the window stretches it: once the list
+        // started reporting real widths, the mechanism label's full sentence (about 620 pt
+        // of text, longer or shorter depending on the state) pushed the window out to 651.
+        // An equality makes the fitting size the intended size, and the long labels
+        // truncate instead — which is exactly what their line-break mode asks for.
         NSLayoutConstraint.activate([
-            content.widthAnchor.constraint(greaterThanOrEqualToConstant: Metrics.windowSize.width),
-            content.heightAnchor.constraint(greaterThanOrEqualToConstant: Metrics.windowSize.height),
+            content.widthAnchor.constraint(equalToConstant: Metrics.windowSize.width),
+            content.heightAnchor.constraint(equalToConstant: Metrics.windowSize.height),
         ])
 
         brandIcon.imageScaling = .scaleProportionallyDown
@@ -127,10 +133,23 @@ final class KeeperWindowController: NSObject {
         summaryLabel.stringValue = L("window.summary.preparing")
 
         listStack.orientation = .vertical
-        listStack.alignment = .width
+        // Rows are pinned to the stack's width (in `rebuild`) rather than stretched by
+        // `alignment`. The value that reads as "fill the width" is not stored by this SDK:
+        // assigning `.width` leaves the stack reporting `notAnAttribute`, and the rows come
+        // out at their natural width, flush right — which is not what a list wants.
+        listStack.alignment = .leading
         listStack.spacing = 0
 
         listContainer.addSubview(listStack)
+
+        // Both take part in the constraint chain `layoutViews` installs, and neither is in
+        // that method's list of views to switch over to Auto Layout. Left at their default,
+        // the engine silently ignores every constraint naming them: the document view stays
+        // 0×0, so all the rows land on the same coordinates at the origin and the list draws
+        // as a single untitled line. Nothing is logged — a view with this flag on has handed
+        // its frame back to its superview, so there is no frame for the engine to fight.
+        listContainer.translatesAutoresizingMaskIntoConstraints = false
+        listStack.translatesAutoresizingMaskIntoConstraints = false
 
         scrollView.hasVerticalScroller = true
         scrollView.drawsBackground = false
@@ -302,6 +321,11 @@ final class KeeperWindowController: NSObject {
             row.isMarked = fold.isHidden(entry.bundleIdentifier) && entry.canFold
             row.onMarkChange = { [weak self] changed in self?.markChanged(changed) }
             listStack.addArrangedSubview(row)
+            // One row spans the whole list, so clicking anywhere on it toggles the app and
+            // the checkbox lines up down the right-hand edge. Activated after the row joins
+            // the hierarchy — before that the two anchors have no common ancestor and
+            // activating throws.
+            row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
             rows.append(row)
         }
         syncControls()
@@ -417,6 +441,24 @@ final class KeeperWindowController: NSObject {
         }
     }
 
+    /// Scans once more, a moment later, when a scan concludes the hide did not take.
+    ///
+    /// The system applies the restriction a second or two *after* the submission, so a scan
+    /// taken immediately after it still sees the selected apps on the menu bar. Without this
+    /// the window greets the user with an orange "it does not look applied — check the
+    /// Accessibility permission" that is simply wrong, which is worse than saying nothing:
+    /// it sends them to System Settings to fix something that is not broken. One extra scan
+    /// settles it. It runs at most once per submission — reset in `syncFromModel` — so a
+    /// genuine failure still gets reported as one instead of rescanning in a loop.
+    private func recheckAfterCollapse() {
+        guard !didRecheck else { return }
+        didRecheck = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
+            guard let self, self.window.isVisible, !self.isScanning else { return }
+            self.refresh()
+        }
+    }
+
     // MARK: - State synchronisation
 
     private func syncControls() {
@@ -480,6 +522,7 @@ final class KeeperWindowController: NSObject {
         case (true, false, false):
             mechanismLabel.stringValue = L("window.mechanism.ineffective", stillVisible.count)
             mechanismLabel.textColor = .systemOrange
+            recheckAfterCollapse()
         case (true, false, true):
             mechanismLabel.stringValue = L("window.mechanism.verified", selected.count)
             mechanismLabel.textColor = .systemGreen

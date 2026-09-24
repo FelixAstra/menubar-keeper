@@ -53,6 +53,12 @@ final class Diagnostics {
         schedule(after: 3.0, when: "verify") { [weak self] in
             self?.runFoldVerification()
         }
+        schedule(after: 1.2, when: "layoutdump") { [weak self] in
+            self?.runLayoutDump()
+        }
+        schedule(after: 1.4, when: "windowshot") { [weak self] in
+            self?.runWindowShot()
+        }
     }
 
     private func schedule(after delay: TimeInterval, when flag: String, _ body: @escaping () -> Void) {
@@ -284,6 +290,115 @@ final class Diagnostics {
                 self.report("[bartoggle] restored: isCollapsed=\(self.fold.isCollapsed)")
             }
         }
+    }
+
+    // MARK: - Layout
+
+    /// Logs the geometry of the app list.
+    ///
+    /// Geometry is the one thing a screenshot cannot report. Ten rows laid out on top of
+    /// each other look exactly like a single row, and "the list did not render" is
+    /// indistinguishable by eye from "the list rendered as a pile at the origin". Reading
+    /// the frames back turns both into numbers that can be compared before and after a fix.
+    private func runLayoutDump() {
+        delegate.showMainWindow()
+        after(1.5) { [weak self] in
+            guard let self else { return }
+            guard let window = NSApp.windows.first(where: {
+                $0.isVisible && $0.title == L("window.title")
+            }), let content = window.contentView else {
+                self.report("[layout] no main window; titles=\(NSApp.windows.map(\.title))")
+                return
+            }
+            guard let scroll = self.firstDescendant(of: content, as: NSScrollView.self),
+                  let document = scroll.documentView else {
+                self.report("[layout] no list found under the content view")
+                return
+            }
+
+            self.report("[layout] content  \(self.box(content))")
+            self.report("[layout] scroll   \(self.box(scroll))")
+            self.report("[layout] clip     \(self.box(scroll.contentView))")
+            self.report("[layout] document \(self.box(document))")
+
+            guard let stack = document.subviews.first(where: { $0 is NSStackView })
+                    as? NSStackView else {
+                self.report("[layout] document has no stack; subviews="
+                            + "\(document.subviews.map { "\(type(of: $0))" })")
+                return
+            }
+            self.report("[layout] stack    \(self.box(stack)) arranged=\(stack.arrangedSubviews.count) "
+                        + "fit=\(stack.fittingSize) "
+                        + "orientation=\(stack.orientation == .vertical ? "vertical" : "horizontal") "
+                        + "alignment=\(stack.alignment.rawValue)")
+
+            let rows = stack.arrangedSubviews.compactMap { $0 as? AppRowView }
+            self.report("[layout] rows=\(rows.count) of \(stack.arrangedSubviews.count) arranged")
+            for (index, row) in rows.enumerated() {
+                self.report("[layout]   row[\(index)] \(self.box(row)) "
+                            + "fit=\(row.fittingSize) marked=\(row.isMarked)")
+            }
+            if let first = rows.first, let inner = first.subviews.first {
+                self.report("[layout]   row[0] content \(self.box(inner)) type=\(type(of: inner))")
+                for (index, piece) in inner.subviews.enumerated() {
+                    self.report("[layout]     piece[\(index)] \(type(of: piece)) \(self.box(piece))")
+                }
+            }
+        }
+    }
+
+    /// Writes a PNG of the main window, rendered straight from the view hierarchy.
+    ///
+    /// Frames being right is not the same as the window drawing: a row can be laid out
+    /// correctly and still paint nothing. `cacheDisplay` draws the views themselves, so
+    /// this needs no Screen Recording permission and nothing has to be on screen in front
+    /// of the window — which also makes it repeatable.
+    private func runWindowShot() {
+        delegate.showMainWindow()
+        // Deliberately patient. Hiding is applied by the system a second or two after the
+        // submission, so a shot taken too early shows a window mid-settle — including the
+        // "it does not look applied" state that the window is about to correct itself out of.
+        after(4.0) { [weak self] in
+            guard let self else { return }
+            guard let window = NSApp.windows.first(where: {
+                $0.isVisible && $0.title == L("window.title")
+            }), let view = window.contentView else {
+                self.report("[shot] no main window; titles=\(NSApp.windows.map(\.title))")
+                return
+            }
+            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+                self.report("[shot] could not allocate a bitmap for \(view.bounds)")
+                return
+            }
+            view.cacheDisplay(in: view.bounds, to: rep)
+
+            guard let png = rep.representation(using: .png, properties: [:]) else {
+                self.report("[shot] PNG encoding failed")
+                return
+            }
+            let path = "/tmp/menubarkeeper-window.png"
+            do {
+                try png.write(to: URL(fileURLWithPath: path))
+                self.report("[shot] wrote \(path) \(rep.pixelsWide)×\(rep.pixelsHigh)")
+            } catch {
+                self.report("[shot] write failed: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    private func box(_ view: NSView) -> String {
+        let frame = view.frame
+        return String(format: "(%.1f,%.1f %.1f×%.1f) tamic=%@",
+                      frame.origin.x, frame.origin.y, frame.width, frame.height,
+                      view.translatesAutoresizingMaskIntoConstraints ? "Y" : "n")
+    }
+
+    private func firstDescendant<T: NSView>(of view: NSView, as type: T.Type) -> T? {
+        if let match = view as? T { return match }
+        for sub in view.subviews {
+            if let found = firstDescendant(of: sub, as: type) { return found }
+        }
+        return nil
     }
 
     // MARK: - Synthetic input
