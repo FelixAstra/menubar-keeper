@@ -1,0 +1,40 @@
+name: CI
+
+# Compile check on every push and pull request. There is no test suite yet — the app is a
+# GUI agent driving private frameworks, so the meaningful signal here is that it still
+# builds clean (no errors, no warnings) on a clean machine.
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    name: Build
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Build (universal)
+        run: ./Scripts/build.sh 2>&1 | tee /tmp/build.log
+
+      - name: Fail on compiler warnings
+        run: |
+          if grep -E "warning:" /tmp/build.log; then
+            echo "::error::Compiler warnings found"
+            exit 1
+          fi
+          echo "no warnings"
+
+      - name: Package disk image
+        run: ./Scripts/package-dmg.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MenuBarKeeper-dmg
+          path: build/MenuBarKeeper-*.dmg
+          if-no-files-found: error

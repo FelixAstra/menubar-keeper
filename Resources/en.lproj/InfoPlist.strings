@@ -1,0 +1,4 @@
+/* InfoPlist.strings — English */
+
+CFBundleName = "MenuBarKeeper";
+CFBundleDisplayName = "MenuBarKeeper";

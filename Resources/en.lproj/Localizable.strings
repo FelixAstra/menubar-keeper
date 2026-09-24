@@ -1,0 +1,146 @@
+/*
+   Localizable.strings — English (base / development language)
+   MenuBarKeeper
+
+   Conventions
+   -----------
+   * Keys are dotted, lowercase, grouped by the surface they appear on.
+   * %d = integer count, %@ = string substitution. Escape a literal percent as %%.
+   * Keys ending in ".one" / ".many" are singular / plural variants; pick them with
+     L10n.plural(_:singular:plural:).
+*/
+
+/* MARK: - Common */
+
+"app.name" = "MenuBarKeeper";
+"common.ok" = "OK";
+"common.cancel" = "Cancel";
+"common.thisApp" = "this app";
+
+/* MARK: - Language picker */
+
+"language.label" = "Language";
+"language.system" = "Follow System";
+"language.changed.title" = "Language changed";
+"language.changed.body" = "MenuBarKeeper will restart to apply the new language.";
+
+/* MARK: - Status item */
+
+"status.tooltip.idle" = "MenuBarKeeper — click to open, right-click for more";
+"status.tooltip.collapsed" = "MenuBarKeeper — %d hidden (click to reveal, ⌥⌘M)";
+
+/* MARK: - Status item menu */
+
+"menu.open" = "Open MenuBarKeeper";
+"menu.showBar" = "Reveal hidden icons";
+"menu.expandAll" = "Show all icons";
+"menu.peek" = "Temporarily show for 10 seconds";
+"menu.collapse.none" = "Hide menu bar icons (nothing selected yet)";
+"menu.collapse.count" = "Hide menu bar icons (%d)";
+"menu.accessibility" = "Accessibility permission…";
+"menu.help" = "How to use…";
+"menu.moveToApplications" = "Move to Applications (fixes the hidden icon)…";
+"menu.quit" = "Quit MenuBarKeeper";
+
+/* MARK: - Move to /Applications */
+
+"alert.move.title" = "Move to Applications";
+"alert.move.body" = "MenuBarKeeper must run from the Applications folder. Otherwise, once icons are hidden, macOS hides its own menu bar icon too and you lose the only way to control it.\n\nThe app will be copied to /Applications and restarted. Code signing and permission records are independent of the path, so you will not have to grant access again.";
+"alert.move.confirm" = "Move and Restart";
+"alert.copyFailed.title" = "Could not copy";
+
+/* MARK: - Help */
+
+"help.title" = "MenuBarKeeper · How to use";
+"help.status.collapsed" = "Now: %d apps hidden";
+"help.status.expanded" = "Now: everything visible";
+"help.mechanism.unavailable" = "Hiding engine: unavailable — %@";
+"help.mechanism.available" = "Hiding engine: available";
+"help.mechanism.lastError" = " (last request rejected: %@)";
+"help.body" = "What it does\nGroups menu bar icons by app. Apps you select are moved into a hidden area — their icons leave the menu bar and come back on demand.\n\nGetting started\n1. Grant Accessibility permission on first launch. It is used only to identify which app owns each icon. Nothing is recorded or uploaded.\n2. Click any row to select an app. Its icons disappear from the menu bar immediately, and your selection is remembered.\n3. Left-click the menu bar icon to reveal the hidden icons just below it; click again to put them back.\n4. On the floating bar:\n   · click an icon — switch to that app\n   · right-click an icon — open, preferences, restore to menu bar, hide, quit, force quit\n   · click the arrow — show or hide the menu bar (the same button toggles both ways)\n   · click the MenuBarKeeper icon — open the main window\n5. Turn on \"Hide on launch\" to apply your selection automatically at startup.\n\nKeyboard shortcuts (work even while icons are hidden)\n⌥⌘M   reveal or hide the floating bar\n⌥⌘\\   hide or show menu bar icons\n\nThree notes\n· Hidden apps keep running. Only the icon is hidden, nothing else changes.\n· Once an icon is hidden, macOS no longer exposes it, so the app's own menu is out of reach. Use \"Restore to menu bar\" on the floating bar to bring a single icon back and use its menu normally.\n· System items (clock, battery, Control Center) are never hidden.";
+
+/* MARK: - Main window */
+
+"window.title" = "MenuBarKeeper";
+"window.state.collapsed" = "● Hidden — %d app icons are off the menu bar";
+"window.state.marked" = "○ All icons shown (%d selected)";
+"window.state.idle" = "○ All icons shown";
+
+"window.mechanism.ok" = "Hiding engine ready · discovery: %@";
+"window.mechanism.unavailable" = "⚠︎ Hiding engine unavailable: %@";
+"window.mechanism.rejected" = "⚠︎ The system rejected the last request: %@";
+"window.mechanism.verified" = "✓ Verified — the %d hidden apps are gone from the menu bar (confirmed via the accessibility tree)";
+"window.mechanism.ineffective" = "⚠︎ It does not look applied — %d selected apps are still on the menu bar. Check that Accessibility permission is enabled, then restart MenuBarKeeper.";
+"window.notInApplications" = "⚠︎ MenuBarKeeper is not in the Applications folder — once you hide icons, its own icon is hidden too. Use \"Move to Applications\" from the menu bar menu to fix this.";
+
+"window.summary.preparing" = "Preparing…";
+"window.summary.scanning" = "Scanning the menu bar…";
+"window.summary.noPermission" = "Accessibility permission is required to read which app owns each menu bar icon.";
+"window.summary.count" = "The menu bar shows %d icons from %d apps (%d can be hidden)";
+
+"window.hint" = "Selecting a row hides that app's menu bar icon right away. Use \"Show all\" any time to take a look.";
+"window.empty" = "No app is currently using the menu bar.\nIf MenuBarKeeper is already ticked in System Settings, quit and reopen it, then try again.";
+
+"window.autoCollapse" = "Hide on launch";
+"window.autoCollapse.tooltip" = "When enabled, your selection is applied automatically when MenuBarKeeper starts.";
+
+"window.refresh" = "Refresh";
+"window.expandAll" = "Show all";
+"window.collapse" = "Hide";
+"window.collapse.count" = "Hide %d selected";
+
+"window.permission.body" = "Accessibility permission is required to identify which app each menu bar icon belongs to.\n\nIt is used only to read icon ownership so they can be hidden. Nothing is recorded and nothing is uploaded.\n\nTo enable: System Settings → Privacy & Security → Accessibility, then add MenuBarKeeper with “+” and tick it.\nIf MenuBarKeeper is already listed, remove it with “−” and add it back, so a stale permission record cannot get in the way.\n\n⚠️ You must quit and reopen MenuBarKeeper afterwards — macOS reads this permission only when a process starts, so clicking Refresh here has no effect.";
+"window.permission.openSettings" = "Open System Settings";
+"window.permission.restart" = "Granted — restart MenuBarKeeper";
+
+/* MARK: - App list row */
+
+"row.meta.folded" = "hidden";
+"row.meta.one" = "1 icon";
+"row.meta.many" = "%d icons";
+"row.checkbox.tooltip" = "Select to move this app's menu bar icon into the hidden area";
+"row.checkbox.tooltip.locked" = "System component or MenuBarKeeper itself — never hidden";
+"row.tooltip" = "Click anywhere on the row to select or deselect";
+"row.subtitle.self" = "%@ · MenuBarKeeper itself, never hidden";
+"row.subtitle.system" = "%@ · system component, never hidden";
+
+/* MARK: - Discovery mechanism */
+
+"discovery.agent" = "MenuBarAgent single-window menu bar (macOS 27+)";
+"discovery.legacy" = "each app's AXExtrasMenuBar (macOS 26 and earlier)";
+
+/* MARK: - Floating bar */
+
+"bar.caption.empty" = "Nothing hidden";
+"bar.caption.count" = "%d hidden";
+"bar.openMainWindow" = "Open the MenuBarKeeper window";
+"bar.toggle.expand" = "Show — put the icons back on the menu bar (click again to hide)";
+"bar.toggle.collapse" = "Hide — move the icons back into this bar (click again to show)";
+"bar.icon.tooltip" = "%@\nClick to switch · right-click for more";
+
+"bar.menu.open" = "Open %@";
+"bar.menu.preferences" = "Preferences…";
+"bar.menu.preferences.tooltip" = "Switch to the app and press ⌘,";
+"bar.menu.preferences.tooltip.denied" = "Requires Accessibility permission";
+"bar.menu.reveal" = "Restore to menu bar (use its own menu)";
+"bar.menu.hide" = "Hide windows (⌘H)";
+"bar.menu.revealInFinder" = "Reveal in Finder";
+"bar.menu.quit" = "Quit %@";
+"bar.menu.forceQuit" = "Force Quit…";
+
+"bar.forceQuit.title" = "Force quit “%@”?";
+"bar.forceQuit.body" = "Unsaved work will be lost. Usually you should choose Quit instead, so the app can save by itself.";
+"bar.forceQuit.confirm" = "Force Quit";
+
+/* MARK: - Errors */
+
+"error.mechanism.unavailable" = "Native hiding unavailable: %@";
+"error.mechanism.rejected" = "The system rejected the hiding request: %@";
+"error.mechanism.timeout" = "The system did not respond to the hiding request in time";
+
+"reason.unsupportedOS" = "macOS %d does not support hiding menu bar icons";
+"reason.noFramework" = "MenuBarClientCore is not present on this system";
+"reason.noObjectiveC" = "Could not resolve the Objective-C runtime";
+"reason.missingClasses" = "The expected classes were not found in MenuBarClientCore";
+"reason.interfaceChanged" = "The MenuBarClientCore interface does not match what was expected";
+"reason.cannotCreateConfiguration" = "Could not create a menu bar visibility configuration";

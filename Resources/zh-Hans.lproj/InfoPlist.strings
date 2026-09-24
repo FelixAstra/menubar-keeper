@@ -1,0 +1,4 @@
+/* InfoPlist.strings — 简体中文 */
+
+CFBundleName = "菜单栏管家";
+CFBundleDisplayName = "菜单栏管家";

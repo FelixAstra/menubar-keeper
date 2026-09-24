@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- __VERSION__ and __BUILD__ are substituted by Scripts/build.sh from the
+         VERSION file, so the version has exactly one source of truth. -->
+    <key>CFBundleShortVersionString</key>
+    <string>__VERSION__</string>
+    <key>CFBundleVersion</key>
+    <string>__BUILD__</string>
+
+    <key>CFBundleExecutable</key>
+    <string>MenuBarKeeper</string>
+    <key>CFBundleIdentifier</key>
+    <string>io.github.felixastra.MenuBarKeeper</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleIconFile</key>
+    <string>MenuBarKeeper</string>
+
+    <!-- Localization. Development language is English; the localized display names live
+         in Resources/<lang>.lproj/InfoPlist.strings. -->
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>en</string>
+        <string>zh-Hans</string>
+    </array>
+    <key>CFBundleName</key>
+    <string>MenuBarKeeper</string>
+    <key>CFBundleDisplayName</key>
+    <string>MenuBarKeeper</string>
+
+    <!-- Menu bar only: no Dock tile, no app switcher entry. -->
+    <key>LSUIElement</key>
+    <true/>
+
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+
+    <!-- Shown in the Accessibility permission prompt, so it explains why the permission
+         is wanted before the user sees the system dialog. -->
+    <key>NSAccessibilityUsageDescription</key>
+    <string>MenuBarKeeper reads which app owns each menu bar icon so that icons can be grouped and hidden. Nothing is recorded or uploaded.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>MIT licensed. See the LICENSE file.</string>
+</dict>
+</plist>

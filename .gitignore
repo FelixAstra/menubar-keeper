@@ -1,0 +1,24 @@
+# Build output and app bundles
+build/
+*.app/
+*.dmg
+dist/
+
+# Signing material: never publish a private key, and a local certificate's public half
+# is meaningless to anyone else.
+Scripts/signing/
+*.p12
+*.cer
+*.pem
+
+# Internal archive: research probes, Chinese working docs, original design files.
+# Kept locally, not part of the published repo.
+_archive/
+
+# macOS
+.DS_Store
+._*
+
+# Xcode / SwiftPM scratch
+.swiftpm/
+xcuserdata/

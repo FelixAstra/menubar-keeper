@@ -1,0 +1,142 @@
+/*
+   Localizable.strings — 简体中文
+   MenuBarKeeper
+
+   键名与英文表一致；缺键时回退到英文（CFBundleDevelopmentRegion = en）。
+   中文没有单复数变化，"*.one" 与 "*.many" 两个键取相同的文案即可。
+*/
+
+/* MARK: - 通用 */
+
+"app.name" = "菜单栏管家";
+"common.ok" = "好";
+"common.cancel" = "取消";
+"common.thisApp" = "该 App";
+
+/* MARK: - 语言 */
+
+"language.label" = "语言";
+"language.system" = "跟随系统";
+"language.changed.title" = "语言已更改";
+"language.changed.body" = "菜单栏管家将重新启动以应用新的语言。";
+
+/* MARK: - 菜单栏图标 */
+
+"status.tooltip.idle" = "菜单栏管家 —— 左键打开，右键更多";
+"status.tooltip.collapsed" = "菜单栏管家 —— 已收起 %d 个（左键摊开，⌥⌘M）";
+
+/* MARK: - 右键菜单 */
+
+"menu.open" = "打开菜单栏管家";
+"menu.showBar" = "摊开已收起的图标";
+"menu.expandAll" = "全部展开";
+"menu.peek" = "临时展开 10 秒";
+"menu.collapse.none" = "收起菜单栏图标（尚未标记任何 App）";
+"menu.collapse.count" = "收起菜单栏图标（%d 个）";
+"menu.accessibility" = "辅助功能权限设置…";
+"menu.help" = "使用说明…";
+"menu.moveToApplications" = "移到应用程序文件夹（修复图标被隐藏）…";
+"menu.quit" = "退出菜单栏管家";
+
+/* MARK: - 迁移到 /Applications */
+
+"alert.move.title" = "移到应用程序文件夹";
+"alert.move.body" = "本工具必须从「应用程序」文件夹运行。否则一旦收起，它自己的菜单栏图标会被系统一并隐藏，你将失去唯一的操作入口。\n\n现在会把它复制到 /Applications 并自动重启。签名与授权记录跟路径无关，不需要重新授权。";
+"alert.move.confirm" = "移到应用程序文件夹并重启";
+"alert.copyFailed.title" = "复制失败";
+
+/* MARK: - 使用说明 */
+
+"help.title" = "菜单栏管家 · 使用说明";
+"help.status.collapsed" = "当前：已收起 %d 个 App";
+"help.status.expanded" = "当前：全部显示";
+"help.mechanism.unavailable" = "隐藏机制：不可用 —— %@";
+"help.mechanism.available" = "隐藏机制：可用";
+"help.mechanism.lastError" = "（上次提交被拒绝：%@）";
+"help.body" = "做什么\n把菜单栏上的图标按 App 归拢。勾选的 App 会被收进「隐藏区」——\n它们的图标从菜单栏上消失，需要时一键展开。\n\n怎么用\n1. 首次使用需授予「辅助功能」权限（用于识别图标归属，不记录、不上传）。\n2. 点某个 App 那一行即可勾选，它会立刻从菜单栏收起；勾选会被自动记住。\n3. 左键点菜单栏图标 → 被收起的图标摊开在它正下方；再点一次即收回。\n4. 悬浮条上：\n   · 点图标 = 切换过去\n   · 右键图标 = 打开 / 偏好设置 / 放回菜单栏 / 隐藏窗口 / 退出 / 强制退出\n   · 点右侧箭头 = 展开或收回菜单栏（同一个按钮来回切）\n   · 点本工具图标 = 打开主窗口\n5. 勾上「打开本工具时自动收起」，以后启动就自动生效。\n\n快捷键（不经过菜单栏，图标被收起时同样可用）\n⌥⌘M   摊开 / 收起悬浮条\n⌥⌘\\   收起 / 展开菜单栏\n\n三点说明\n· 收起的 App 只是图标不显示，App 本身照常运行，功能不受影响。\n· 图标一旦被收起，系统就不再提供可点击的菜单栏图标，因此拿不到 App 那份完整菜单。右键菜单里的「放回菜单栏」可把它单独还回去，之后就能照常用它自己的菜单。\n· 系统组件（时钟、电池、控制中心等）不参与折叠，避免系统失控。";
+
+/* MARK: - 主窗口 */
+
+"window.title" = "菜单栏管家";
+"window.state.collapsed" = "● 已收起 —— %d 个 App 的图标不在菜单栏上";
+"window.state.marked" = "○ 全部显示中（已标记 %d 个 App）";
+"window.state.idle" = "○ 全部显示中";
+
+"window.mechanism.ok" = "隐藏机制可用 · 发现方式：%@";
+"window.mechanism.unavailable" = "⚠︎ 隐藏机制不可用：%@";
+"window.mechanism.rejected" = "⚠︎ 上次提交被系统拒绝：%@";
+"window.mechanism.verified" = "✓ 已生效 —— 收起的 %d 个 App 确实已从菜单栏消失（经辅助功能树确认）";
+"window.mechanism.ineffective" = "⚠︎ 看起来没生效 —— %d 个已标记的 App 仍在菜单栏上。请确认辅助功能权限已勾选，并重启本工具后再试。";
+"window.notInApplications" = "⚠︎ 本工具不在「应用程序」文件夹中 —— 收起后它自己的图标也会被一并隐藏。请用菜单栏右键菜单里的「移到应用程序文件夹」修复。";
+
+"window.summary.preparing" = "准备扫描…";
+"window.summary.scanning" = "正在扫描菜单栏…";
+"window.summary.noPermission" = "未授予「辅助功能」权限，无法读取菜单栏上的图标归属。";
+"window.summary.count" = "菜单栏上可见 %d 个图标，来自 %d 个 App（其中 %d 个可收进隐藏区）";
+
+"window.hint" = "勾选 = 该 App 的菜单栏图标立即收进隐藏区。随时可点「全部展开」看一眼。";
+"window.empty" = "没有扫描到任何占用菜单栏的图标。\n若系统设置里已勾选本 App，请退出后重新启动它再试。";
+
+"window.autoCollapse" = "打开本工具时自动收起";
+"window.autoCollapse.tooltip" = "开启后，本工具启动时自动把勾选的 App 收进隐藏区";
+
+"window.refresh" = "刷新";
+"window.expandAll" = "全部展开";
+"window.collapse" = "收起";
+"window.collapse.count" = "收起选中的 %d 个";
+
+"window.permission.body" = "需要「辅助功能」权限，才能识别菜单栏上每个图标属于哪个 App。\n\n这项权限只用于读取图标的归属，并据此申请隐藏；不做任何记录、不上传。\n\n开启方法：系统设置 → 隐私与安全性 → 辅助功能 → 用「+」把本 App 加进去并勾选。\n若列表里已有「菜单栏管家」，先用「−」移除再加回，避免残留的旧授权记录不匹配。\n\n⚠️ 授权后必须「退出并重新打开本工具」——macOS 只在进程启动时读取该权限，在这里点「刷新」是不会生效的。";
+"window.permission.openSettings" = "打开系统设置";
+"window.permission.restart" = "已授权，重启本工具";
+
+/* MARK: - 列表行 */
+
+"row.meta.folded" = "已收起";
+"row.meta.one" = "1 个图标";
+"row.meta.many" = "%d 个图标";
+"row.checkbox.tooltip" = "勾选后，该 App 的菜单栏图标会被收进隐藏区";
+"row.checkbox.tooltip.locked" = "系统组件或本工具，不参与折叠";
+"row.tooltip" = "点击整行即可勾选 / 取消";
+"row.subtitle.self" = "%@ · 本工具，不参与折叠";
+"row.subtitle.system" = "%@ · 系统组件，不参与折叠";
+
+/* MARK: - 发现机制 */
+
+"discovery.agent" = "MenuBarAgent 单窗口菜单栏（macOS 27+）";
+"discovery.legacy" = "各 App 的 AXExtrasMenuBar（macOS 26 及更早）";
+
+/* MARK: - 悬浮条 */
+
+"bar.caption.empty" = "当前没有收起的 App";
+"bar.caption.count" = "已收起 %d";
+"bar.openMainWindow" = "打开菜单栏管家主窗口";
+"bar.toggle.expand" = "展开 —— 让图标回到菜单栏（再点一次收回）";
+"bar.toggle.collapse" = "收回 —— 把图标收回这条悬浮条（再点一次展开）";
+"bar.icon.tooltip" = "%@\n左键切换过去 · 右键更多操作";
+
+"bar.menu.open" = "打开 %@";
+"bar.menu.preferences" = "偏好设置…";
+"bar.menu.preferences.tooltip" = "切到该 App 并按下 ⌘,";
+"bar.menu.preferences.tooltip.denied" = "需要先授予「辅助功能」权限";
+"bar.menu.reveal" = "放回菜单栏（用它自己的菜单）";
+"bar.menu.hide" = "隐藏窗口（⌘H）";
+"bar.menu.revealInFinder" = "在访达中显示";
+"bar.menu.quit" = "退出 %@";
+"bar.menu.forceQuit" = "强制退出…";
+
+"bar.forceQuit.title" = "强制退出「%@」？";
+"bar.forceQuit.body" = "未保存的内容会丢失。通常应该先选「退出」，让 App 自己保存。";
+"bar.forceQuit.confirm" = "强制退出";
+
+/* MARK: - 错误 */
+
+"error.mechanism.unavailable" = "原生隐藏不可用：%@";
+"error.mechanism.rejected" = "系统拒绝了隐藏请求：%@";
+"error.mechanism.timeout" = "系统未在限定时间内响应隐藏请求";
+
+"reason.unsupportedOS" = "当前系统（macOS %d）不支持菜单栏隐藏";
+"reason.noFramework" = "当前系统没有 MenuBarClientCore 框架";
+"reason.noObjectiveC" = "无法解析 Objective-C 运行时";
+"reason.missingClasses" = "MenuBarClientCore 中找不到预期的类";
+"reason.interfaceChanged" = "MenuBarClientCore 的接口与预期不一致（系统版本可能已更新）";
+"reason.cannotCreateConfiguration" = "无法创建菜单栏可见性配置";

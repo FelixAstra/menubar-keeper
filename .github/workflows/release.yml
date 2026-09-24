@@ -1,0 +1,82 @@
+name: Release
+
+# Pushing a v* tag produces a signed-off build and attaches MenuBarKeeper.dmg to a GitHub
+# release. The asset name has no version in it on purpose, so the README can link to
+# /releases/latest/download/MenuBarKeeper.dmg and never go stale.
+#
+# workflow_dispatch runs the same build but stops before publishing — useful to check the
+# toolchain still compiles the app without cutting a release.
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build.sh derives CFBundleVersion from the commit count, which needs history.
+          fetch-depth: 0
+
+      - name: Toolchain
+        run: |
+          swift --version
+          xcodebuild -version
+
+      - name: Version
+        id: version
+        run: echo "value=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: ./Scripts/build.sh
+
+      - name: Package disk image
+        run: ./Scripts/package-dmg.sh
+
+      - name: Verify the bundle
+        run: |
+          APP=build/MenuBarKeeper.app
+          test -x "$APP/Contents/MacOS/MenuBarKeeper"
+          lipo -info "$APP/Contents/MacOS/MenuBarKeeper"
+          plutil -p "$APP/Contents/Info.plist" | grep -E "CFBundleIdentifier|CFBundleShortVersionString"
+          for lang in en zh-Hans; do
+            test -f "$APP/Contents/Resources/$lang.lproj/Localizable.strings"
+          done
+          codesign --verify --strict "$APP"
+          echo "bundle OK"
+
+      # Stable filename: the README links to releases/latest/download/<name>.
+      - name: Normalise the asset name
+        run: mv "build/MenuBarKeeper-${{ steps.version.outputs.value }}.dmg" build/MenuBarKeeper.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MenuBarKeeper-${{ steps.version.outputs.value }}.dmg
+          path: build/MenuBarKeeper.dmg
+          if-no-files-found: error
+
+      # gh is preinstalled on GitHub runners and is authenticated by GH_TOKEN, so no
+      # third-party release action is needed.
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/MenuBarKeeper.dmg --clobber
+          else
+            gh release create "$TAG" build/MenuBarKeeper.dmg \
+              --title "$TAG" \
+              --generate-notes
+          fi
+          echo "Attached to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG"
