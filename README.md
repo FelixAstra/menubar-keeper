@@ -4,7 +4,7 @@
 
 [**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文
 
-<img src="docs/images/menu-bar.png" alt="MenuBarKeeper in the menu bar" width="100%">
+<img src="docs/images/menu-bar.png?v=2" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
 
 ## Download
 
@@ -19,6 +19,10 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 > `xattr -dr com.apple.quarantine /Applications/MenuBarKeeper.app`
 
 ## What it does
+
+<img src="docs/images/demo.gif" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the capsule and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+
+<sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
 | | |
 |---|---|
@@ -63,6 +67,9 @@ make help       # all targets
 ```
 
 Requires the Xcode command line tools. No Xcode project, no third-party dependencies.
+
+> The images in this README are rendered from [`tools/demo`](tools/demo) instead of being
+> screen-recorded, so they can be regenerated rather than re-shot.
 
 > For a stable Accessibility grant across rebuilds, create a local signing certificate once
 > with `make cert`. Ad-hoc signatures are keyed to the binary's hash, so every rebuild makes

@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<title>MenuBarKeeper desktop simulation</title>
+<style>
+  /* ===================================================================
+     MenuBarKeeper — simulated macOS desktop, driven by ?t=<ms>.
+     Everything on screen is drawn here except the wallpaper, the app
+     icon and the menu bar template, which come from the real product.
+     =================================================================== */
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    background: #000;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  #screen {
+    position: relative;
+    width: 1280px;
+    height: 800px;
+    overflow: hidden;
+    font-family: -apple-system, "SF Pro Text", "Helvetica Neue", sans-serif;
+    color: #fff;
+  }
+
+  #wallpaper {
+    position: absolute;
+    inset: 0;
+    background: url(wallpaper.jpg) center / cover no-repeat;
+  }
+
+  /* ---------------------------------------------------------------- menu bar */
+
+  #menubar {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 11px;
+    /* no backdrop-filter: a plain translucent scrim is what headless Chrome
+       renders reliably, and the wallpaper behind it is smooth anyway */
+    background: rgba(0, 0, 0, 0.22);
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+    font-size: 13.5px;
+    font-weight: 500;
+    letter-spacing: 0.1px;
+    z-index: 30;
+  }
+
+  .mb-left, .mb-right { display: flex; align-items: center; }
+  .mb-left { gap: 17px; }
+  .mb-right { gap: 0; flex: none; }
+  .mb-left .apple { font-size: 17px; line-height: 1; letter-spacing: 0; }
+  .mb-left .title { font-weight: 700; }
+
+  .status-item { display: flex; align-items: center; justify-content: center; height: 32px; }
+  .status-item svg { display: block; }
+  .status-app { width: 38px; flex: none; }
+  .status-app svg { width: 18px; height: 18px; }
+  .sys { width: 32px; flex: none; }
+  .sys svg { width: 19px; height: 19px; }
+  .clock {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.2px;
+    padding: 0 4px 0 10px;
+    flex: none;
+  }
+
+  /* the product's own status item, from the shipping template asset.
+     An <img> with an invert filter is used rather than a CSS mask: the mask
+     shorthand is not honoured reliably in headless Chrome. */
+  .pill-img {
+    width: 52px;
+    height: 21px;
+    display: block;
+    filter: invert(1);
+  }
+  .pill-wrap {
+    width: 56px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 3px;
+    border-radius: 6px;
+    flex: none;
+  }
+
+  /* ---------------------------------------------------------------- dock */
+
+  #dock {
+    position: absolute;
+    left: 50%;
+    bottom: 9px;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: flex-end;
+    gap: 9px;
+    padding: 7px 9px 7px 9px;
+    border-radius: 21px;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.30), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+    z-index: 20;
+  }
+
+  .dock-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 12.5px;
+    transform-origin: 50% 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 9px rgba(0, 0, 0, 0.30);
+    position: relative;
+    overflow: hidden;
+  }
+  .dock-icon svg { width: 30px; height: 30px; color: #fff; display: block; }
+  .dock-icon img { width: 100%; height: 100%; display: block; }
+
+  #dock-sep {
+    width: 1px;
+    height: 46px;
+    align-self: center;
+    background: rgba(255, 255, 255, 0.35);
+    margin: 0 2px;
+    flex: none;
+  }
+
+  /* running-app indicator */
+  .dock-icon .dot {
+    position: absolute;
+    bottom: -6px;
+    width: 4px; height: 4px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.85);
+  }
+
+  /* ---------------------------------------------------------------- window */
+
+  #window {
+    position: absolute;
+    left: 330px;
+    top: 74px;
+    width: 620px;
+    height: 560px;
+    border-radius: 11px;
+    background: #f2f2f4;
+    border: 1px solid rgba(0, 0, 0, 0.14);
+    box-shadow: 0 26px 60px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.20);
+    overflow: hidden;
+    color: #1d1d1f;
+    display: flex;
+    flex-direction: column;
+    z-index: 25;
+  }
+
+  #titlebar {
+    height: 29px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    background: #e7e7ea;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.09);
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(0, 0, 0, 0.78);
+  }
+
+  #lights {
+    position: absolute;
+    left: 13px;
+    top: 0;
+    height: 29px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .light {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(0, 0, 0, 0.55);
+    line-height: 1;
+  }
+  .light.close { background: #ff5f57; }
+  .light.min   { background: #febc2e; }
+  .light.zoom  { background: #28c840; }
+
+  #win-content {
+    flex: 1;
+    padding: 15px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .win-head { display: flex; align-items: center; gap: 10px; }
+  .win-head .brand {
+    width: 44px; height: 18px;
+    display: block;
+    flex: none;
+  }
+  .state { font-size: 13px; font-weight: 600; color: #1d1d1f; }
+  .mech, .summary {
+    font-size: 10.5px;
+    line-height: 1.4;
+    color: #6e6e73;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .summary { color: #98989d; margin-top: 3px; }
+  .mech.hidden-text { visibility: hidden; }
+
+  #list {
+    margin: 10px 0 0;
+    flex: none;
+    overflow: hidden;
+  }
+
+  .row {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 12px;
+    border-radius: 6px;
+    position: relative;
+  }
+  .row .flash {
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.07);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .row .app-ico {
+    width: 22px; height: 22px;
+    border-radius: 5px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+  }
+  .row .app-ico svg { width: 13px; height: 13px; color: #fff; display: block; }
+  .row .texts { flex: 1; min-width: 0; }
+  .row .name {
+    font-size: 13px; font-weight: 500; color: #1d1d1f;
+    line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .sub {
+    font-size: 10.5px; color: #6e6e73;
+    line-height: 1.25;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .row .meta {
+    font-size: 11px;
+    font-variant-numeric: tabular-nums;
+    color: #6e6e73;
+    flex: none;
+  }
+  .row .meta.dim { color: #aeaeb2; }
+
+  .cbx {
+    width: 14px; height: 14px;
+    border-radius: 4px;
+    flex: none;
+    position: relative;
+    background: #fff;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.22), 0 1px 1px rgba(0, 0, 0, 0.05);
+  }
+  .cbx .tick {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+  }
+  .cbx .tick svg { width: 10px; height: 10px; color: #fff; display: block; }
+  .cbx.locked {
+    background: #e9e9ec;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+  }
+
+  #footer {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+  #hint {
+    font-size: 10.5px;
+    line-height: 1.45;
+    color: #98989d;
+    margin-bottom: 12px;
+  }
+  #controls { display: flex; align-items: center; gap: 16px; }
+  .ctl-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #1d1d1f; }
+  .ctl-check .cbx { width: 13px; height: 13px; border-radius: 4px; }
+  .popup {
+    font-size: 12px;
+    color: #1d1d1f;
+    background: linear-gradient(#fff, #f2f2f4);
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 6px;
+    padding: 2px 6px 2px 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
+  }
+  .popup .chev { color: #6e6e73; font-size: 9px; }
+  #buttons { margin-left: auto; display: flex; gap: 10px; }
+  .btn {
+    font-size: 12.5px;
+    color: #1d1d1f;
+    background: linear-gradient(#fff, #f1f1f3);
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 6px;
+    padding: 3px 13px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+    white-space: nowrap;
+  }
+  .btn.primary {
+    background: linear-gradient(#3d95ff, #0a7cff);
+    border-color: #0a6ae0;
+    color: #fff;
+    font-weight: 500;
+  }
+
+  /* ------------------------------------------------------- floating bar */
+
+  #floating-bar {
+    position: absolute;
+    top: 38px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 1px;
+    padding: 5px 7px;
+    border-radius: 11px;
+    background: rgba(38, 38, 42, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transform-origin: 50% 0;
+    z-index: 40;
+  }
+  .bar-caption {
+    font-size: 11px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.62);
+    padding: 0 6px 0 4px;
+    white-space: nowrap;
+  }
+  .bar-sep {
+    width: 1px;
+    height: 16px;
+    background: rgba(255, 255, 255, 0.20);
+    margin: 0 4px;
+    flex: none;
+  }
+  .bar-btn {
+    width: 28px; height: 28px;
+    border-radius: 7px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    flex: none;
+  }
+  .bar-btn.hot { background: rgba(255, 255, 255, 0.18); }
+  .bar-btn svg.act { width: 15px; height: 15px; color: rgba(255, 255, 255, 0.75); display: block; }
+  .bar-btn img { width: 17px; height: 17px; display: block; border-radius: 4px; }
+  .bar-ico {
+    width: 20px; height: 20px;
+    border-radius: 5.5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+  }
+  .bar-ico svg { width: 12px; height: 12px; color: #fff; display: block; }
+
+  /* ------------------------------------------------------- context menu */
+
+  #ctxmenu {
+    position: absolute;
+    min-width: 268px;
+    padding: 5px;
+    border-radius: 8px;
+    background: rgba(246, 246, 248, 0.86);
+    border: 1px solid rgba(0, 0, 0, 0.12);
+    box-shadow: 0 14px 34px rgba(0, 0, 0, 0.40);
+    color: #1d1d1f;
+    font-size: 13px;
+    transform-origin: 0 0;
+    z-index: 45;
+  }
+  .ctx-item {
+    height: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 9px;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+  .ctx-item.on { background: #0a7cff; color: #fff; }
+  .ctx-item.off { color: rgba(0, 0, 0, 0.34); }
+  .ctx-sep { height: 1px; background: rgba(0, 0, 0, 0.10); margin: 5px 9px; }
+
+  /* ----------------------------------------------------------- caption */
+
+  #caption {
+    position: absolute;
+    left: 50%;
+    top: 668px;
+    transform: translateX(-50%);
+    padding: 9px 18px;
+    border-radius: 11px;
+    background: rgba(28, 28, 32, 0.72);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+    font-size: 15px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.94);
+    white-space: nowrap;
+    z-index: 50;
+  }
+
+  /* ------------------------------------------------------------ cursor */
+
+  #cursor {
+    position: absolute;
+    left: 0; top: 0;
+    width: 19px; height: 25px;
+    z-index: 60;
+    filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.5));
+  }
+  #cursor svg { display: block; width: 19px; height: 25px; }
+  #cursor.press svg { transform: scale(0.88); transform-origin: 4px 4px; }
+
+  .ripple {
+    position: absolute;
+    width: 20px; height: 20px;
+    margin: -10px 0 0 -10px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+    z-index: 55;
+  }
+</style>
+
+<div id="screen">
+  <div id="wallpaper"></div>
+
+  <div id="menubar">
+    <div class="mb-left">
+      <span class="apple">&#63743;</span>
+      <span class="title">Finder</span>
+      <span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span>
+    </div>
+    <div class="mb-right" id="mb-right"></div>
+  </div>
+
+  <div id="window">
+    <div id="titlebar">
+      <div id="lights">
+        <div class="light close" id="light-close"></div>
+        <div class="light min"></div>
+        <div class="light zoom"></div>
+      </div>
+      MenuBarKeeper
+    </div>
+    <div id="win-content">
+      <div class="win-head">
+        <img class="brand" src="pill.png" alt="">
+        <div class="state" id="state">&#9675; All icons shown</div>
+      </div>
+      <div class="mech" id="mech">Hiding engine ready &middot; discovery: MenuBarAgent single-window menu bar (macOS 27+)</div>
+      <div class="summary" id="summary">The menu bar shows 7 icons from 7 apps (6 can be hidden)</div>
+      <div id="list"></div>
+      <div id="footer">
+        <div id="hint">Selecting a row hides that app&rsquo;s menu bar icon right away. Use &ldquo;Show all&rdquo; any time to take a look.</div>
+        <div id="controls">
+          <div class="ctl-check"><div class="cbx" id="auto-cbx"><div class="tick"></div></div>Hide on launch</div>
+          <div class="popup">Follow System <span class="chev">&#9660;</span></div>
+          <div id="buttons">
+            <div class="btn">Refresh</div>
+            <div class="btn">Show all</div>
+            <div class="btn primary" id="btn-hide">Hide</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="floating-bar"></div>
+  <div id="ctxmenu" style="display:none"></div>
+  <div id="caption" style="display:none"></div>
+
+  <div id="dock"></div>
+
+  <div id="cursor">
+    <svg viewBox="0 0 19 25">
+      <path d="M1 1 L1 19.4 L5.3 15.3 L8.4 22.4 L11.6 20.9 L8.6 14.1 L14.6 14.1 Z"
+            fill="#ffffff" stroke="#1a1a1a" stroke-width="1.15" stroke-linejoin="round"/>
+    </svg>
+  </div>
+</div>
+
+<script>
+/* ====================================================================
+   Model
+   ==================================================================== */
+
+/** The apps that own a menu bar icon in this simulation. */
+const APPS = [
+  { id: 'spotify',   name: 'Spotify',   bundle: 'com.spotify.client',        glyph: 'music', color: '#1db954' },
+  { id: 'dropbox',   name: 'Dropbox',   bundle: 'com.getdropbox.dropbox',    glyph: 'box',   color: '#0061ff' },
+  { id: 'notion',    name: 'Notion',    bundle: 'notion.id',                 glyph: 'doc',   color: '#2f2f2f' },
+  { id: 'onepass',   name: '1Password', bundle: 'com.1password.1password',   glyph: 'key',   color: '#1a73e8' },
+  { id: 'stats',     name: 'Stats',     bundle: 'eu.exelban.Stats',          glyph: 'bars',  color: '#3a3a3c' },
+  { id: 'shottr',    name: 'Shottr',    bundle: 'cc.ffitch.shottr',          glyph: 'cam',   color: '#e8632a' },
+];
+
+const SELF = {
+  name: 'MenuBarKeeper',
+  bundle: 'io.github.felixastra.MenuBarKeeper',
+  subtitle: 'io.github.felixastra.MenuBarKeeper &middot; MenuBarKeeper itself, never hidden',
+};
+
+/* Menu bar glyphs, all drawn inside a 24×24 box and kept within 3…21 so that
+   neighbouring items never touch. Holes are cut with fill-rule="evenodd"
+   sub-paths, which is how a real template icon punches through. */
+const GLYPHS = {
+  music: '<path d="M10.2 18.2V7.6l9-1.9v10.2" fill="none" stroke="currentColor" stroke-width="2.2"/>'
+       + '<ellipse cx="7.4" cy="18.2" rx="2.8" ry="2.5"/><ellipse cx="16.4" cy="16.1" rx="2.8" ry="2.5"/>',
+  box:   '<path d="M8 18.2h8.2a4.3 4.3 0 0 0 .4-8.5A5.9 5.9 0 0 0 5.9 10.3 4.5 4.5 0 0 0 8 18.2z"/>',
+  doc:   '<path fill-rule="evenodd" d="M6.8 3.6h7l4 4.2v12.6H6.8zM9.4 10.2h6.6v1.5H9.4zm0 3.3h6.6v1.5H9.4zm0 3.3h4.2v1.5H9.4z"/>',
+  lock:  '<rect x="5.4" y="10.6" width="13.2" height="9.8" rx="2.2"/>'
+       + '<path d="M8.4 10.6V8a3.6 3.6 0 0 1 7.2 0v2.6" fill="none" stroke="currentColor" stroke-width="2.1"/>'
+       + '<path fill-rule="evenodd" d="M12 13.4a1.9 1.9 0 0 0-.8 3.6v2.1h1.6v-2.1a1.9 1.9 0 0 0-.8-3.6z"/>',
+  bars:  '<rect x="3.6" y="13.2" width="4.2" height="7.2" rx="1.6"/><rect x="9.9" y="9" width="4.2" height="11.4" rx="1.6"/><rect x="16.2" y="4.6" width="4.2" height="15.8" rx="1.6"/>',
+  cam:   '<path fill-rule="evenodd" d="M3.8 8.2h4.1l1.4-2.1h5.4l1.4 2.1h4.1a1.7 1.7 0 0 1 1.7 1.7v7.6a1.7 1.7 0 0 1-1.7 1.7H3.8A1.7 1.7 0 0 1 2.1 17.5V9.9a1.7 1.7 0 0 1 1.7-1.7zm8.2 3.1a3.7 3.7 0 1 0 0 7.4 3.7 3.7 0 0 0 0-7.4z"/>',
+  gear:  '<path fill-rule="evenodd" d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zM10.4 2h3.2l.5 2.6 1.6.9 2.5-.9 1.6 2.8-2 1.7v1.8l2 1.7-1.6 2.8-2.5-.9-1.6.9-.5 2.6h-3.2l-.5-2.6-1.6-.9-2.5.9L4 13.6l2-1.7v-1.8L4 8.4l1.6-2.8 2.5.9 1.6-.9z"/>',
+  cc:    '<rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5" fill="none" stroke="currentColor" stroke-width="1.9"/>'
+       + '<circle cx="8.6" cy="9" r="2.7"/><circle cx="15.4" cy="15" r="2.7"/>',
+  code:  '<path fill-rule="evenodd" d="M8.9 6.6 3.5 12l5.4 5.4 1.5-1.5L6.5 12l3.9-3.9zM15.1 6.6l-1.5 1.5 3.9 3.9-3.9 3.9 1.5 1.5L20.5 12z"/>',
+  globe: '<path fill-rule="evenodd" d="M12 2.8a9.2 9.2 0 1 0 0 18.4 9.2 9.2 0 0 0 0-18.4zm0 1.9c1 0 2.2 2.4 2.4 6.4H9.6C9.8 7.1 11 4.7 12 4.7zM7.7 11.1H4.9a7.3 7.3 0 0 1 1.4-3.8h2.1a19 19 0 0 0-.7 3.8zm0 1.8a19 19 0 0 0 .7 3.8H6.3a7.3 7.3 0 0 1-1.4-3.8zm3.8 0h4.9c-.2 4-1.4 6.4-2.4 6.4s-2.2-2.4-2.5-6.4zm4.9-1.8H11.5c.2-4 1.4-6.4 2.5-6.4s2.2 2.4 2.4 6.4zm2.8 1.8h-2.8a19 19 0 0 0-.7 3.8h2.1a7.3 7.3 0 0 0 1.4-3.8zm-2.8-1.8a19 19 0 0 0-.7-3.8h2.1a7.3 7.3 0 0 1 1.4 3.8z"/>',
+  bubble:'<path fill-rule="evenodd" d="M12 3.6c-5.1 0-9.2 3.2-9.2 7.1 0 2.3 1.3 4.3 3.4 5.6l-.6 3.9 4.1-2.2c.7.1 1.5.2 2.3.2 5.1 0 9.2-3.2 9.2-7.1S17.1 3.6 12 3.6zM8.4 9.6a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm3.6 0a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8zm3.6 0a1.4 1.4 0 1 0 0 2.8 1.4 1.4 0 0 0 0-2.8z"/>',
+  terminal: '<path fill-rule="evenodd" d="M4.6 4.4h14.8a1.8 1.8 0 0 1 1.8 1.8v11.6a1.8 1.8 0 0 1-1.8 1.8H4.6a1.8 1.8 0 0 1-1.8-1.8V6.2a1.8 1.8 0 0 1 1.8-1.8zM7.2 9l2.6 2.6-2.6 2.6 1.3 1.3 3.9-3.9-3.9-3.9zM12.6 14.6h5v1.8h-5z"/>',
+  trash: '<path fill-rule="evenodd" d="M9.4 3.2h5.2l.9 1.8h4.1v2H4.4v-2h4.1zM5.8 8.4h12.4l-1 12.2a1.6 1.6 0 0 1-1.6 1.4H8.4a1.6 1.6 0 0 1-1.6-1.4zM10 11v8h1.7v-8zm2.3 0v8H14v-8z"/>',
+  check: '<path d="M1.4 5.2 4.4 8.2 10.6 1.6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>',
+};
+
+const MENU_BAR_GLYPHS = ['music', 'box', 'doc', 'lock', 'bars', 'cam'];
+
+const DOCK = [
+  { glyph: 'bubble',   color: 'linear-gradient(180deg,#5ee36f,#20ba44)' },
+  { glyph: 'globe',    color: 'linear-gradient(180deg,#63c8ff,#1a7ff0)' },
+  { glyph: 'music',    color: 'linear-gradient(180deg,#ff7b9c,#f5345f)' },
+  { glyph: 'cam',      color: 'linear-gradient(180deg,#ffd86b,#f08c00)' },
+  { app: true },
+  { glyph: 'terminal', color: 'linear-gradient(180deg,#5c5c60,#232326)' },
+  { glyph: 'gear',     color: 'linear-gradient(180deg,#a8a8ad,#6c6c72)' },
+  { sep: true },
+  { glyph: 'trash',    color: 'linear-gradient(180deg,rgba(255,255,255,.30),rgba(255,255,255,.16))', outline: true },
+];
+
+/* ====================================================================
+   Timeline
+   ==================================================================== */
+
+const T = {
+  hoverDock:   [1100, 2000],
+  clickDock:   [2000, 2300],
+  winOpen:     [2300, 2800],
+  toRow1:      [2800, 3400],
+  ticks:       [[3400, 3800], [3800, 4200], [4200, 4600], [4600, 5000], [5000, 5400], [5400, 5800]],
+  toClose:     [5800, 6400],
+  clickClose:  [6400, 6700],
+  winClose:    [6700, 7080],
+  toPill:      [7080, 7700],
+  clickPill:   [7700, 8050],
+  barOpen:     [8050, 8400],
+  toBarIcon:   [8400, 9050],
+  rightClick:  [9050, 9450],
+  menuOpen:    [9450, 9750],
+  menuHilite:  [9750, 10300],
+  clickMenu:   [10300, 10700],
+  toPill2:     [10800, 11450],
+  clickPill2:  [11450, 11800],
+  barClose:    [11800, 12120],
+  END: 13400,
+};
+
+const CAPTIONS = [
+  [2500, 5800,  'Pick the apps that should leave the menu bar'],
+  [6900, 7900,  'Only those icons are gone — the apps keep running'],
+  [8400, 9500,  'Click the menu bar icon: the hidden ones drop down'],
+  [9500, 10800, 'Right-click an icon to open, put back, or quit'],
+  [11450, 12900, 'One click puts everything back'],
+];
+
+/* ====================================================================
+   Small helpers
+   ==================================================================== */
+
+const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+/** 0 before `a`, 1 after `b`, eased in between. */
+const seg = (t, a, b) => clamp01((t - a) / (b - a));
+const easeOut = (p) => 1 - Math.pow(1 - p, 3);
+const easeInOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const lerp = (a, b, p) => a + (b - a) * p;
+const mix = (a, b, p) => [lerp(a[0], b[0], p), lerp(a[1], b[1], p)];
+
+/** A one-shot animation: progress after `at`, lasting `dur`. */
+const pulse = (t, at, dur) => clamp01((t - at) / dur);
+
+/* ====================================================================
+   Build the static DOM once
+   ==================================================================== */
+
+const $ = (id) => document.getElementById(id);
+
+function svgGlyph(name, box) {
+  return `<svg viewBox="${box || '0 0 24 24'}" fill="currentColor">${GLYPHS[name]}</svg>`;
+}
+
+/* --- menu bar right-hand side --- */
+$('mb-right').innerHTML = MENU_BAR_GLYPHS.map((g, i) =>
+    `<div class="status-item status-app" data-app="${i}">${svgGlyph(g)}</div>`).join('') + `
+  <div class="pill-wrap" id="pill"><img class="pill-img" src="pill.png" alt=""></div>
+  <div class="status-item sys" style="margin-left:8px">${svgGlyph('cc')}</div>
+  <div class="status-item sys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+    <path d="M2.5 8.5a14 14 0 0 1 19 0"/><path d="M6 12.2a9 9 0 0 1 12 0"/><path d="M9.4 15.9a4 4 0 0 1 5.2 0"/>
+    <circle cx="12" cy="19.4" r="1.4" fill="currentColor" stroke="none"/></svg></div>
+  <div class="status-item sys"><svg viewBox="0 0 30 24" fill="none">
+    <rect x="1.2" y="5" width="23" height="14" rx="4.2" stroke="currentColor" stroke-width="1.9" opacity=".55"/>
+    <rect x="3.4" y="7.2" width="18.6" height="9.6" rx="2.5" fill="currentColor"/>
+    <path d="M26.4 10v4a2.6 2.6 0 0 0 0-4z" fill="currentColor" opacity=".55"/></svg></div>
+  <div class="status-item clock">Thu 7:48 PM</div>
+`;
+
+/* --- dock --- */
+$('dock').innerHTML = DOCK.map((d, i) => {
+  if (d.sep) return '<div id="dock-sep"></div>';
+  if (d.app) return `<div class="dock-icon" id="dock-keeper"><img src="appicon.png" alt=""></div>`;
+  return `<div class="dock-icon" style="background:${d.color}${d.outline ? ';border:1px solid rgba(255,255,255,.35)' : ''}">
+            ${svgGlyph(d.glyph)}</div>`;
+}).join('');
+
+/* --- app list rows --- */
+const rowEls = APPS.map((a, i) => {
+  const el = document.createElement('div');
+  el.className = 'row';
+  el.innerHTML = `
+    <div class="flash"></div>
+    <div class="app-ico" style="background:${a.color}">${svgGlyph(a.glyph)}</div>
+    <div class="texts"><div class="name">${a.name}</div><div class="sub">${a.bundle}</div></div>
+    <div class="meta">1 icon</div>
+    <div class="cbx"><div class="tick">${svgGlyph('check', '0 0 12 10')}</div></div>`;
+  $('list').appendChild(el);
+  return el;
+});
+
+const selfRow = document.createElement('div');
+selfRow.className = 'row';
+selfRow.innerHTML = `
+  <div class="app-ico" style="background:#1d1d1f">${svgGlyph('cam')}</div>
+  <div class="texts"><div class="name">${SELF.name}</div><div class="sub">${SELF.subtitle}</div></div>
+  <div class="meta">1 icon</div>
+  <div class="cbx locked"></div>`;
+$('list').appendChild(selfRow);
+
+/* --- floating bar contents are rebuilt whenever the hidden set changes --- */
+const bar = $('floating-bar');
+const barIcons = [];              /* <div class="bar-btn"> per hidden app, in order */
+const barIconEls = () => bar.querySelectorAll('.bar-ico');
+
+function buildBar(hiddenIds) {
+  bar.innerHTML = `
+    <div class="bar-caption">${hiddenIds.length} hidden</div>
+    <div class="bar-sep"></div>
+    ${hiddenIds.map((id) => {
+      const a = APPS.find((x) => x.id === id);
+      return `<div class="bar-btn" data-app="${id}"><div class="bar-ico" style="background:${a.color}">${svgGlyph(a.glyph)}</div></div>`;
+    }).join('')}
+    <div class="bar-sep"></div>
+    <div class="bar-btn"><svg class="act" viewBox="0 0 24 24" fill="currentColor">${GLYPHS.code}</svg></div>
+    <div class="bar-btn"><img src="appicon.png" alt=""></div>`;
+}
+
+/* --- context menu --- */
+const CTX_ITEMS = [
+  { text: 'Open Spotify' },
+  { text: 'Preferences…' },
+  { sep: true },
+  { text: 'Restore to menu bar (use its own menu)' },
+  { text: 'Hide windows (⌘H)' },
+  { text: 'Reveal in Finder' },
+  { sep: true },
+  { text: 'Quit Spotify' },
+  { text: 'Force Quit…' },
+];
+$('ctxmenu').innerHTML = CTX_ITEMS.map((it) =>
+  it.sep ? '<div class="ctx-sep"></div>' : `<div class="ctx-item">${it.text}</div>`).join('');
+const ctxItems = [...$('ctxmenu').querySelectorAll('.ctx-item')];
+
+/* ====================================================================
+   Geometry — measured from the real DOM once at startup, so every cursor
+   target and panel anchor is exact instead of hand-tuned.
+   ==================================================================== */
+
+/** Untransformed box of `el`, in #screen coordinates.
+ *
+ *  offsetLeft/offsetWidth deliberately ignore CSS transforms: `#window` and
+ *  `#floating-bar` animate with `scale`, and layout-box measurements stay
+ *  correct for the whole of those animations.
+ */
+function boxOf(el) {
+  let x = 0;
+  let y = 0;
+  for (let node = el; node; node = node.offsetParent) {
+    x += node.offsetLeft;
+    y += node.offsetTop;
+  }
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  return { x, y, w, h, cx: x + w / 2, cy: y + h / 2, bottom: y + h };
+}
+
+const geo = {
+  dockKeeper: boxOf($('dock-keeper')),
+  pill: boxOf($('pill')),
+  rows: rowEls.map(boxOf),
+  closeBtn: boxOf($('light-close')),
+};
+/* the floating bar hangs from the menu bar icon */
+const dockIconCenterX = geo.dockKeeper.cx;
+
+/* The context menu is hidden until needed, so its metrics are taken once with
+   display forced on for the measurement only. */
+const ctxMenuEl = $('ctxmenu');
+ctxMenuEl.style.display = 'block';
+ctxMenuEl.style.visibility = 'hidden';
+const ctxItemBoxes = ctxItems.map((el) => ({ x: el.offsetLeft, y: el.offsetTop, w: el.offsetWidth, h: el.offsetHeight }));
+const ctxMenuWidth = ctxMenuEl.offsetWidth;
+ctxMenuEl.style.display = 'none';
+ctxMenuEl.style.visibility = '';
+
+const SCREEN_WIDTH = 1280;
+
+/** Centres the bar under the menu bar icon by *position* rather than with a
+ *  translate: `boxOf` reads layout boxes, and a translate would therefore be
+ *  invisible to every measurement taken from inside the bar. */
+function placeFloatingBar() {
+  bar.style.left = `${geo.pill.cx - bar.offsetWidth / 2}px`;
+}
+
+/* Canonical geometry of the floating bar in its "everything hidden" state.
+   Measured once here so that the context-menu anchor — and therefore the cursor
+   path that leads to it — does not move when the bar later loses an icon. */
+const barAnchorBoxes = (() => {
+  buildBar(APPS.map((a) => a.id));
+  bar.style.display = 'flex';
+  placeFloatingBar();
+  const boxes = [...bar.querySelectorAll('.bar-btn')].map(boxOf);
+  bar.style.display = 'none';
+  bar.dataset.shape = '';
+  return boxes;
+})();
+
+/** Top-left corner of the context menu opened from `anchor`, kept on screen. */
+const menuOriginFor = (anchor) => ({
+  x: Math.min(anchor.cx - 14, SCREEN_WIDTH - ctxMenuWidth - 10),
+  y: anchor.bottom + 2,
+});
+
+/* ====================================================================
+   Frame renderer — a pure function of time
+   ==================================================================== */
+
+const cursorEl = $('cursor');
+const captionEl = $('caption');
+const screenEl = $('screen');
+const windowEl = $('window');
+const statusAppEls = [...document.querySelectorAll('#mb-right .status-app')];
+
+let ripples = [];
+
+/** A click reads as "pressed" for the first stretch of its ripple. */
+const isPressing = (t, at) => {
+  const p = pulse(t, at, 200);
+  return p > 0.15 && p < 0.7;
+};
+const CLICKS = () => [T.clickDock[0], ...T.ticks.map((s) => s[0]), T.clickClose[0],
+                      T.clickPill[0], T.rightClick[0], T.clickPill2[0]];
+
+/* -------------------------------------------------------- selection state */
+
+/** What the user has selected by time `t`, and what that implies for the UI. */
+function selectionAt(t) {
+  let hiddenCount = 0;
+  let clickedRow = -1;
+  T.ticks.forEach((span, i) => {
+    if (t >= span[0]) hiddenCount = i + 1;
+    if (t >= span[0] && t < span[0] + 300) clickedRow = i;
+  });
+  /* Late in the walkthrough one icon is put back, straight from the floating
+     bar's context menu — the storey's point is that recovery is one click. */
+  const restored = t >= T.clickMenu[0] ? APPS[1].id : null;
+  const hiddenIds = APPS.slice(0, hiddenCount).map((a) => a.id).filter((id) => id !== restored);
+  return { hiddenCount, clickedRow, restored, hiddenIds };
+}
+
+/* ---------------------------------------------------------------- cursor */
+
+/** The pointer's itinerary. Each stop is reached at its own timestamp and the
+ *  legs in between are eased, which is what makes the movement read as a hand
+ *  rather than as a jump cut. */
+function cursorPath(barButtons) {
+  const lead = 150;                     /* the pointer settles just before a click */
+  const pillSpot = { x: geo.pill.cx, y: geo.pill.cy + 7 };
+  const menuAnchor = barAnchorBoxes[1] ?? barAnchorBoxes[0];
+  const menuOrigin = menuOriginFor(menuAnchor);
+  const restoreItem = ctxItemBoxes[3];
+
+  const stops = [
+    { t: 0, x: 902, y: 466 },
+    { t: T.hoverDock[1], x: geo.dockKeeper.cx, y: geo.dockKeeper.cy },
+    { t: T.clickDock[1], x: geo.dockKeeper.cx, y: geo.dockKeeper.cy },
+  ];
+  geo.rows.forEach((r, i) => stops.push({ t: T.ticks[i][0] - lead, x: r.cx, y: r.cy }));
+  stops.push({ t: T.clickClose[0] - lead, x: geo.closeBtn.cx + 2, y: geo.closeBtn.cy });
+  stops.push({ t: T.clickPill[0] - lead, x: pillSpot.x, y: pillSpot.y });
+  stops.push({ t: T.rightClick[0] - lead, x: menuAnchor.cx, y: menuAnchor.cy });
+  stops.push({
+    t: T.clickMenu[0] - lead,
+    x: menuOrigin.x + restoreItem.x + restoreItem.w / 2,
+    y: menuOrigin.y + restoreItem.y + restoreItem.h / 2,
+  });
+  stops.push({ t: T.clickMenu[0], x: menuOrigin.x + restoreItem.x + restoreItem.w / 2, y: menuOrigin.y + restoreItem.y + restoreItem.h / 2 });
+  stops.push({ t: T.clickPill2[0] - lead, x: pillSpot.x, y: pillSpot.y });
+  stops.push({ t: T.barClose[1], x: pillSpot.x, y: pillSpot.y });
+  stops.push({ t: T.END, x: 486, y: 432 });
+  return stops.sort((a, b) => a.t - b.t);
+}
+
+/** Position along the itinerary at time `t`. */
+function alongPath(t, stops) {
+  if (t <= stops[0].t) return stops[0];
+  for (let i = 1; i < stops.length; i++) {
+    if (t <= stops[i].t) {
+      const p = easeInOut((t - stops[i - 1].t) / Math.max(1, stops[i].t - stops[i - 1].t));
+      return { x: lerp(stops[i - 1].x, stops[i].x, p), y: lerp(stops[i - 1].y, stops[i].y, p) };
+    }
+  }
+  return stops[stops.length - 1];
+}
+
+/* ------------------------------------------------------------ sub-renderers */
+
+function positionFloatingBar(t, shown) {
+  if (!shown) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  placeFloatingBar();
+  const open = easeOut(seg(t, ...T.barOpen));
+  const close = t >= T.barClose[0] ? easeOut(seg(t, ...T.barClose)) : 0;
+  bar.style.opacity = String(open * (1 - close));
+  bar.style.transform = `scale(${Math.max(0.001, open * (1 - close * 0.45))})`
+                      + ` translateY(${lerp(-11, 0, open)}px)`;
+}
+
+function renderDock(t) {
+  const hover = seg(t, ...T.hoverDock);
+  const icons = [...document.querySelectorAll('.dock-icon')];
+  const keeperIndex = icons.indexOf($('dock-keeper'));
+  icons.forEach((el, i) => {
+    const distance = Math.abs(i - keeperIndex);
+    const peak = distance === 0 ? 1.32 : distance === 1 ? 1.12 : distance === 2 ? 1.04 : 1;
+    let scale = lerp(1, peak, hover);
+    /* one launch bounce, the way a Dock icon announces itself */
+    const bounce = pulse(t, T.clickDock[0] + 200, 900);
+    if (i === keeperIndex && bounce > 0 && bounce < 1) {
+      scale *= 1 + 0.3 * Math.sin(bounce * Math.PI * 2) * (1 - bounce);
+    }
+    el.style.transform = `scale(${scale.toFixed(4)})`;
+    el.style.zIndex = distance === 0 ? '5' : '1';
+  });
+}
+
+function renderWindow(t, sel) {
+  const open = easeOut(seg(t, ...T.winOpen));
+  const close = t >= T.winClose[0] ? easeInOut(seg(t, ...T.winClose)) : 0;
+
+  if (t < T.winOpen[0] || close >= 1) {
+    windowEl.style.display = 'none';
+  } else {
+    windowEl.style.display = 'flex';
+    windowEl.style.transformOrigin = `${dockIconCenterX - 330}px ${geo.dockKeeper.cy - 74}px`;
+    windowEl.style.transform = `scale(${Math.max(0.001, open * (1 - close * 0.86))})`;
+    windowEl.style.opacity = String(open * (1 - close));
+  }
+
+  /* the close button reveals its × while the pointer is over it */
+  $('light-close').textContent = (t >= T.toClose[0] - 300 && t < T.winClose[0]) ? '✕' : '';
+
+  geo.rows.forEach((r, i) => {
+    const on = sel.hiddenCount > i;
+    const row = rowEls[i];
+    const box = row.querySelector('.cbx');
+    const tick = row.querySelector('.tick');
+    const meta = row.querySelector('.meta');
+    box.style.background = on ? '#0a7cff' : '#fff';
+    box.style.boxShadow = on
+      ? 'inset 0 0 0 1px rgba(0,0,0,.05)'
+      : 'inset 0 0 0 1px rgba(0,0,0,.22), 0 1px 1px rgba(0,0,0,.05)';
+    tick.style.opacity = on ? '1' : '0';
+    meta.textContent = on ? 'hidden' : '1 icon';
+    meta.classList.toggle('dim', on);
+
+    const flash = sel.clickedRow === i ? pulse(t, T.ticks[i][0], 320) : 0;
+    row.querySelector('.flash').style.opacity = String(flash < 1 ? lerp(0.85, 0, easeOut(flash)) : 0);
+  });
+
+  const all = sel.hiddenCount === APPS.length;
+  $('state').innerHTML = all
+    ? '&#9679; Hidden — 6 app icons are off the menu bar'
+    : sel.hiddenCount > 0 ? `&#9675; All icons shown (${sel.hiddenCount} selected)` : '&#9675; All icons shown';
+  $('mech').innerHTML = all
+    ? '&#10003; Verified — the 6 hidden apps are gone from the menu bar (confirmed via the accessibility tree)'
+    : 'Hiding engine ready &middot; discovery: MenuBarAgent single-window menu bar (macOS 27+)';
+  $('btn-hide').textContent = sel.hiddenCount > 0 ? `Hide ${sel.hiddenCount} selected` : 'Hide';
+}
+
+function renderMenuBar(t, sel) {
+  const gone = new Set(APPS.slice(0, sel.hiddenCount).map((a) => a.id));
+  statusAppEls.forEach((el) => {
+    const index = Number(el.dataset.app);
+    const id = APPS[index].id;
+    const isHidden = gone.has(id) && id !== sel.restored;
+    /* how present the item is right now, 0…1 */
+    const alpha = isHidden
+      ? 1 - easeOut(pulse(t, T.ticks[index][0], 420))
+      : (sel.restored === id ? easeOut(seg(t, T.clickMenu[0], T.clickMenu[0] + 420)) : 1);
+    const a = clamp01(alpha);
+    el.style.opacity = String(a);
+    /* collapsing the width is what makes the neighbours slide across, exactly
+       how the menu bar reflows when an item really goes away */
+    el.style.width = `${(38 * a).toFixed(2)}px`;
+    el.style.transform = `scale(${lerp(0.7, 1, a).toFixed(4)})`;
+  });
+
+  const pressed = pulse(t, T.clickPill[0], 200) + pulse(t, T.clickPill2[0], 200);
+  const pillEl = $('pill');
+  pillEl.style.transform = (pressed > 0 && pressed < 1)
+    ? `scale(${lerp(1, 0.86, Math.sin(pressed * Math.PI)).toFixed(4)})`
+    : 'scale(1)';
+  pillEl.style.background = (t >= T.barOpen[1] && t < T.barClose[1]) ? 'rgba(255,255,255,.26)' : 'transparent';
+  pillEl.style.borderRadius = '7px';
+}
+
+function renderContextMenu(t) {
+  const shown = t >= T.menuOpen[0] && t < T.clickMenu[0];
+  if (!shown) {
+    $('ctxmenu').style.display = 'none';
+    return;
+  }
+  const anchor = barAnchorBoxes[1] ?? barAnchorBoxes[0];
+  const origin = menuOriginFor(anchor);
+  const open = easeOut(seg(t, ...T.menuOpen));
+  const el = $('ctxmenu');
+  el.style.display = 'block';
+  el.style.left = origin.x + 'px';
+  el.style.top = origin.y + 'px';
+  el.style.transform = `scale(${lerp(0.95, 1, open).toFixed(4)})`;
+  el.style.opacity = String(open);
+  const active = t >= T.clickMenu[0] - 330 ? 3 : -1;
+  ctxItems.forEach((item, i) => item.classList.toggle('on', i === active));
+}
+
+function renderCaption(t) {
+  let text = null;
+  let alpha = 0;
+  for (const [from, to, value] of CAPTIONS) {
+    if (t >= from && t < to) {
+      text = value;
+      alpha = Math.min(easeOut(seg(t, from, from + 320)), 1 - easeOut(seg(t, to - 320, to)));
+    }
+  }
+  if (!text) {
+    captionEl.style.display = 'none';
+    return;
+  }
+  captionEl.style.display = 'block';
+  captionEl.textContent = text;
+  captionEl.style.opacity = String(Math.max(0, alpha));
+  captionEl.style.transform = `translateX(-50%) translateY(${lerp(8, 0, Math.max(0, alpha)).toFixed(2)}px)`;
+}
+
+function renderRipples(t) {
+  const clicks = CLICKS();
+  for (const at of clicks) {
+    if (t < at || t >= at + 430) continue;
+    if (ripples.some((r) => r.at === at)) continue;
+    const el = document.createElement('div');
+    el.className = 'ripple';
+    el.style.left = cursorEl.dataset.x + 'px';
+    el.style.top = cursorEl.dataset.y + 'px';
+    screenEl.appendChild(el);
+    ripples.push({ el, at });
+  }
+  ripples = ripples.filter(({ el, at }) => {
+    const p = pulse(t, at, 430);
+    if (p >= 1) { el.remove(); return false; }
+    el.style.transform = `scale(${lerp(0.4, 4.4, easeOut(p)).toFixed(3)})`;
+    el.style.opacity = String(lerp(0.5, 0, easeOut(p)));
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------ the frame */
+
+function renderFrame(t) {
+  const sel = selectionAt(t);
+  const barShown = t >= T.barOpen[0] && t < T.barClose[1];
+
+  /* The bar is laid out before the cursor is resolved, because its buttons are
+     themselves cursor targets later in the walkthrough. */
+  if (bar.dataset.shape !== sel.hiddenIds.join(',')) {
+    bar.dataset.shape = sel.hiddenIds.join(',');
+    buildBar(sel.hiddenIds);
+  }
+  positionFloatingBar(t, barShown);
+  const barButtons = [...bar.querySelectorAll('.bar-btn')].map(boxOf);
+
+  /* --- pointer --- */
+  const spot = alongPath(t, cursorPath(barButtons));
+  cursorEl.dataset.x = String(spot.x);
+  cursorEl.dataset.y = String(spot.y);
+  cursorEl.style.transform = `translate(${(spot.x - 1).toFixed(2)}px, ${(spot.y - 1).toFixed(2)}px)`;
+  cursorEl.classList.toggle('press', CLICKS().some((at) => isPressing(t, at)));
+
+  renderRipples(t);
+  renderDock(t);
+  renderWindow(t, sel);
+  renderMenuBar(t, sel);
+  renderContextMenu(t);
+  renderCaption(t);
+}
+/* ====================================================================
+   Entry point: ?t=<ms> renders one frame. No timers, no CSS animation —
+   the renderer is a pure function of time, so every frame is reproducible.
+   ==================================================================== */
+
+const params = new URLSearchParams(location.search);
+const tStart = Number(params.get('t') || 0);
+/* `?cursor=0` hides the pointer, which is what the still banner uses. */
+if (params.get('cursor') === '0') cursorEl.style.display = 'none';
+try {
+  renderFrame(tStart);
+  document.documentElement.dataset.ready = '1';
+} catch (error) {
+  /* Surfaced on <html> so a headless run can be checked with --dump-dom. */
+  document.documentElement.dataset.error = `${error.message} | ${(error.stack || '').split('\n')[1] || ''}`;
+  throw error;
+}
+</script>
+</html>

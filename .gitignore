@@ -19,6 +19,11 @@ _archive/
 .DS_Store
 ._*
 
+# Demo renderer scratch: the intermediate frames are large and reproducible
+# from tools/demo in a few minutes.
+node_modules
+tools/demo/frames/
+
 # Xcode / SwiftPM scratch
 .swiftpm/
 xcuserdata/

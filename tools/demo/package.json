@@ -1,0 +1,15 @@
+{
+  "name": "menubarkeeper-demo",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Renderer for the README's walkthrough animation",
+  "scripts": {
+    "render": "node render.mjs frames --fps 20 --duration 13200 --scale 2",
+    "assets": "./build-assets.sh frames ../docs/images",
+    "banner": "./make-banner.sh frames ../docs/images/menu-bar.png"
+  },
+  "dependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
