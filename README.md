@@ -30,8 +30,6 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 Hidden apps keep running. Only the icon goes away.
 
-<img src="docs/images/floating-bar.png" alt="The floating bar of hidden icons" width="100%">
-
 ## Usage
 
 | Action | Result |
