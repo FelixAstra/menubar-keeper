@@ -15,7 +15,7 @@ the pointer, which is how the still banner is taken.
 cd tools/demo
 npm install                 # playwright-core only; it drives the Chrome already on the Mac
 
-node render.mjs frames --fps 20 --duration 13200 --scale 2   # 265 frames, ~3 minutes
+node render.mjs frames --fps 20 --duration 13200 --scale 2   # 265 frames, about 3 minutes
 ./build-assets.sh frames ../docs/images                      # demo.mp4 + demo.gif
 ./make-banner.sh  frames ../docs/images/menu-bar.png         # the still strip
 ```
