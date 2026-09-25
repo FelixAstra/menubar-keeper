@@ -118,13 +118,13 @@
 "bar.openMainWindow" = "Open the MenuBarKeeper window";
 "bar.toggle.expand" = "Show — put the icons back on the menu bar (click again to hide)";
 "bar.toggle.collapse" = "Hide — move the icons back into this bar (click again to show)";
-"bar.icon.tooltip" = "%@\nClick to switch · right-click for more";
+"bar.icon.tooltip" = "%@\nClick to open its menu · right-click for more";
 
 "bar.menu.open" = "Open %@";
 "bar.menu.preferences" = "Preferences…";
 "bar.menu.preferences.tooltip" = "Switch to the app and press ⌘,";
 "bar.menu.preferences.tooltip.denied" = "Requires Accessibility permission";
-"bar.menu.reveal" = "Restore to menu bar (use its own menu)";
+"bar.menu.reveal" = "Keep on the menu bar";
 "bar.menu.hide" = "Hide windows (⌘H)";
 "bar.menu.revealInFinder" = "Reveal in Finder";
 "bar.menu.quit" = "Quit %@";

@@ -62,6 +62,47 @@ final class Diagnostics {
         schedule(after: 1.4, when: "sectiontest") { [weak self] in
             self?.runSectionCheck()
         }
+        schedule(after: 1.6, when: "axdump") { [weak self] in
+            self?.runTreeDump()
+        }
+        schedule(after: 1.6, when: "revealcheck") { [weak self] in
+            self?.runRevealCheck()
+        }
+        schedule(after: 1.6, when: "opencheck") { [weak self] in
+            self?.runOpenCheck()
+        }
+        schedule(after: 1.6, when: "sweepcheck") { [weak self] in
+            self?.runSweepCheck()
+        }
+        schedule(after: 1.6, when: "hitprobe") { [weak self] in
+            self?.runHitProbe()
+        }
+        schedule(after: 1.6, when: "clickshot") { [weak self] in
+            self?.runClickShot()
+        }
+        schedule(after: 2.0, when: "barclick") { [weak self] in
+            self?.runBarClickCheck()
+        }
+    }
+
+    /// The interactive probes drive the real menu bar, so only one may run per launch.
+    ///
+    /// This is not tidiness. Each of them reveals an icon, waits for the bar to go quiet and
+    /// then clicks; two running at once means one probe's reveal is the other's "the bar is
+    /// still moving", and the log interleaves two timelines that are only readable apart. The
+    /// first run that did this produced a sweep whose hits all landed on MenuBarKeeper's own
+    /// icon and a control group that failed — both artifacts of the collision, not of the
+    /// code under test. Leaving a stale marker file next to a new one is easy enough to do by
+    /// accident, so the guard belongs here rather than in the operator's discipline.
+    private var exclusiveProbe: String?
+
+    private func claim(_ name: String) -> Bool {
+        if let taken = exclusiveProbe {
+            report("[probe] \(name) skipped: \(taken) already owns the menu bar this launch")
+            return false
+        }
+        exclusiveProbe = name
+        return true
     }
 
     private func schedule(after delay: TimeInterval, when flag: String, _ body: @escaping () -> Void) {
@@ -183,6 +224,794 @@ final class Diagnostics {
         entries
             .map { "\($0.bundleIdentifier)×\($0.itemCount)\($0.isSelf ? "[self]" : "")" }
             .joined(separator: ", ")
+    }
+
+    // MARK: - Menu bar accessibility tree
+
+    /// Dumps the menu bar agent's accessibility tree, then asks the one question the dump
+    /// exists for: **does a hidden status item survive in the tree?**
+    ///
+    /// Whether it does decides what "clicking a folded icon" can even mean. If the element
+    /// is still there, its menu can be opened with an accessibility press and the icon never
+    /// has to reappear. If it is gone, the icon has to be put back on the menu bar first,
+    /// clicked, and hidden again — a visible flicker that should only be paid for if there
+    /// is no alternative. `AppActions` has claimed "the item does not even appear in the
+    /// tree" since 1.0 without this ever being measured; this probe is that measurement.
+    private func runTreeDump() {
+        report("[ax] ossystem=\(ProcessInfo.processInfo.operatingSystemVersionString)")
+        report("[ax] trusted=\(AccessibilityInventory.isTrusted) "
+               + "collapsed=\(fold.isCollapsed) "
+               + "hidden=\(fold.hiddenBundles.sorted())")
+
+        let nodes = MenuBarAgentInventory.walk()
+        report("[ax] nodes=\(nodes.count)")
+        for node in nodes {
+            let frame = node.frame.map {
+                String(format: "(%.0f,%.0f %.0f×%.0f)", $0.minX, $0.minY, $0.width, $0.height)
+            } ?? "no-frame"
+            report("[ax]   d\(node.depth) pid=\(node.pid) \(node.bundleIdentifier ?? "-") "
+                   + "role=\(node.role ?? "-") id=\(node.identifier ?? "-") \(frame) "
+                   + "actions=[\(node.actions.joined(separator: ","))]")
+        }
+
+        report("[ax] — verdict —")
+        for bundle in fold.hiddenBundles.sorted() {
+            let items = MenuBarAgentInventory.items(ofBundle: bundle)
+            let frames = items.map { item in
+                item.frame.map { String(format: "(%.0f,%.0f %.0f×%.0f)", $0.minX, $0.minY, $0.width, $0.height) }
+                    ?? "no-frame"
+            }
+            let pressable = items.filter { $0.actions.contains(MenuBarAgentInventory.pressAction) }.count
+            report("[ax] hidden \(bundle): items=\(items.count) frames=[\(frames.joined(separator: " "))] "
+                   + "pressed=\(pressable)/\(items.count)")
+        }
+    }
+
+    /// Reveals a hidden icon, clicks it, and photographs the menu bar either side of the
+    /// click — the measurement that decides whether a synthetic click opens a foreign menu.
+    ///
+    /// The instruments before this one each failed for their own reason, and it is worth
+    /// recording which, because the sequence is the point. Reading frames back from the
+    /// accessibility tree says what an item *believes* about itself; it reported our item and
+    /// the revealed one overlapping by two points, and only a photograph showed that the two
+    /// points are real — they are simply adjacent, and both rectangles are honest.
+    /// `AXUIElementCopyElementAtPosition` seemed like the direct answer to "what is at this
+    /// point", but it searches the frontmost application, so every sample came back as
+    /// whatever window sat behind the menu bar.
+    ///
+    /// A photograph has neither failure mode, and now that this app holds the Screen
+    /// Recording permission, it can take one itself. Three shots — before the reveal, after
+    /// it, and after the click — turn "the menu did not open" into something that can be
+    /// looked at rather than inferred.
+    ///
+    /// The wait before the click comes from `/tmp/menubarkeeper-clicksettle`, so the threshold
+    /// can be found by sweeping it across launches instead of guessing once.
+    private func runClickShot() {
+        guard claim("clickshot"), let target = targetBundle() else { return }
+        let settle = contentsOf("/tmp/menubarkeeper-clicksettle") ?? 0.35
+        let gesture = gesture()
+        awaitQuiet(within: 6) { [weak self] _ in
+            guard let self else { return }
+            self.shoot("before")
+            self.fold.beginTransientReveal(target)
+            self.awaitItem(ofBundle: target, within: 5) { _ in
+                self.awaitQuiet(within: 6) { _ in
+                    let own = MenuBarAgentInventory.items(ofBundle: FoldController.ownBundleID)
+                        .first?.frame
+                    let item = MenuBarAgentInventory.items(ofBundle: target).first
+                    guard let frame = item?.frame,
+                          let point = StatusItemOpener.clickPoint(for: frame) else {
+                        self.report("[clickshot] \(target): item not on the bar")
+                        self.fold.endTransientReveal()
+                        return
+                    }
+                    self.report("[clickshot] own=\(own.map(self.box) ?? "-") "
+                                + "target=\(self.box(frame)) click=\(self.box(CGRect(origin: point, size: .zero)))"
+                                + " settle=\(settle)s gesture=\(gesture.label)")
+                    self.shoot("revealed")
+
+                    // The wait under test. `revealed` above is taken at the same moment the
+                    // production path would click, so the two shots differ only by this.
+                    self.after(settle) {
+                        let before = self.windowOwners()
+                        let menusBefore = MenuBarAgentInventory.openMenus(ofBundle: target)
+                        StatusItemOpener.click(at: point, gesture: gesture)
+                        self.after(1.0) {
+                            let opened = self.newWindows(since: before)
+                                .filter { !$0.contains("Window Server") }
+                            let menus = MenuBarAgentInventory.openMenus(ofBundle: target)
+                                .filter { !menusBefore.contains($0) }
+                            self.report("[clickshot] \(settle)s after reveal → windows "
+                                        + "\(opened.isEmpty ? "none" : opened.sorted().joined(separator: " "))"
+                                        + " · menus "
+                                        + "\(menus.isEmpty ? "none" : menus.joined(separator: " "))")
+                            self.shoot("clicked")
+                            self.fold.endTransientReveal()
+                            self.after(1.0) {
+                                self.shoot("after")
+                                self.report("[clickshot] done")
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    /// Runs `screencapture` into `/tmp/menubarkeeper-bar-<label>.png`.
+    ///
+    /// The strip starts at x = 1200 by default and runs to the right edge, which is where the
+    /// items these probes deal with live. Captured at 2× like the rest of the screen, so a
+    /// point `x` is at pixel `(x - 1200) × 2`. `from`, `to` and the height are knobs: the
+    /// acceptance test for the whole feature has to photograph the *middle* of the screen,
+    /// because the answer it is looking for is a window the target app opens for itself.
+    ///
+    /// Tall rather than menu-bar-high on purpose. The first version captured 32 pt — just the
+    /// bar — which cannot show the one thing it was built to look for: **a menu opens below the
+    /// menu bar, not in it.** Every capture came back with the icon present and nothing else,
+    /// which reads as "no menu" whether or not one was there.
+    private var shootHeight: Int {
+        Int(contentsOf("/tmp/menubarkeeper-shotheight") ?? 440)
+    }
+
+    private func shoot(_ label: String, from left: Int = 1200) {
+        let screen = NSScreen.screens.first?.frame ?? .zero
+        let width = Int(screen.width) - left
+        let path = "/tmp/menubarkeeper-bar-\(label).png"
+        try? FileManager.default.removeItem(atPath: path)
+
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+        task.arguments = ["-x", "-R", "\(left),0,\(width),\(shootHeight)", path]
+        do {
+            try task.run()
+            task.waitUntilExit()
+        } catch {
+            report("[shot] \(label): could not run screencapture: \(error.localizedDescription)")
+            return
+        }
+        let size = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int) ?? nil
+        report("[shot] \(label): status=\(task.terminationStatus) "
+               + "bytes=\(size.map(String.init) ?? "none") path=\(path)")
+    }
+
+    /// Drives the whole feature the way a user does: opens the floating bar, clicks the icon
+    /// for a folded app, and reports whether that app responded.
+    ///
+    /// The end-to-end check, and the only one that exercises `iconClicked(_:)` — the reveal,
+    /// the aiming, the click, the re-hide and the fallback are all downstream of it. The
+    /// earlier probes measured those pieces one at a time and each passed while the feature as
+    /// a whole was still unproven, which is exactly the gap a test like this closes.
+    ///
+    /// It reports two independent signals, because neither is sufficient. A new window owned by
+    /// the target is what "the app did something" looks like; but a click that reopens a window
+    /// the app already has produces none, which read as failure until a screenshot showed the
+    /// app's own window sitting there. `AXMenu` in the target's tree is the narrower, exact
+    /// answer for menu-shaped apps. A photograph at `left = 0` settles anything left over.
+    private func runBarClickCheck() {
+        guard claim("barclick"), let target = targetBundle() else { return }
+        let bar = FloatingBarController.shared
+        let before = windowOwners()
+        let selectionBefore = fold.selection
+        let menusBefore = MenuBarAgentInventory.openMenus(ofBundle: target)
+        report("[barclick] target=\(target) collapsed=\(fold.isCollapsed) "
+               + "folded=\(fold.foldedApplications.compactMap(\.bundleIdentifier).count)")
+        bar.show()
+
+        after(1.0) { [weak self] in
+            guard let self else { return }
+            guard let view = bar.viewForDiagnostics,
+                  let button = self.findControl(target, in: view) as? NSButton else {
+                self.report("[barclick] \(target): no icon button on the bar")
+                bar.hide()
+                return
+            }
+            self.report("[barclick] bar visible=\(bar.isVisible) button=\(self.box(button))")
+            self.shoot("barclick-before", from: 0)
+
+            button.performClick(nil)
+
+            // Two seconds: the reveal, the settle, the click, the re-hide, and then whatever
+            // the target app takes to put a window up. Measured at about 1.1 s end to end.
+            self.after(2.0) {
+                let windows = self.newWindows(since: before)
+                    .filter { !$0.contains("Window Server") }
+                let menus = MenuBarAgentInventory.openMenus(ofBundle: target)
+                    .filter { !menusBefore.contains($0) }
+                self.report("[barclick] after click: bar visible=\(bar.isVisible) · windows "
+                            + "\(windows.isEmpty ? "none" : windows.sorted().joined(separator: " "))"
+                            + " · menus \(menus.isEmpty ? "none" : menus.joined(separator: " "))")
+                self.report("[barclick] icon back off the menu bar="
+                            + "\(MenuBarAgentInventory.items(ofBundle: target).isEmpty)  ← expect true")
+                self.report("[barclick] selection unchanged="
+                            + "\(self.fold.selection == selectionBefore)  ← expect true")
+                self.report("[barclick] lastError=\(self.fold.lastError ?? "nil")")
+                self.shoot("barclick-after", from: 0)
+                bar.hide()
+                self.after(0.8) { self.report("[barclick] done") }
+            }
+        }
+    }
+
+    /// Reports what actually receives a click at each point along the strip a revealed item
+    /// and our own item occupy.
+    ///
+    /// The instrument for one specific disagreement. `sweepcheck` clicks across the rectangle
+    /// the tree reports for the target and watches for its menu; when nothing opens, that
+    /// result has two readings — the app ignores synthetic clicks, or the rectangle is simply
+    /// not where the item is drawn, so the clicks went somewhere else entirely. Reading the
+    /// tree again cannot separate them, because the tree is the thing in doubt. Hit-testing
+    /// can: it asks the window server who is under the cursor, which is the same question the
+    /// click asks. No clicks are posted here, so nothing on screen moves.
+    private func runHitProbe() {
+        guard claim("hitprobe"), let target = targetBundle() else { return }
+        awaitQuiet(within: 6) { [weak self] _ in
+            guard let self else { return }
+            self.fold.beginTransientReveal(target)
+            self.awaitItem(ofBundle: target, within: 5) { items in
+                guard let reported = items.first?.frame else {
+                    self.report("[hit] \(target): item never appeared")
+                    self.fold.endTransientReveal()
+                    return
+                }
+                self.awaitQuiet(within: 6) { _ in
+                    let own = MenuBarAgentInventory.items(ofBundle: FoldController.ownBundleID)
+                        .first?.frame
+                    let settled = MenuBarAgentInventory.items(ofBundle: target).first?.frame
+                        ?? reported
+                    self.report("[hit] target=\(target)")
+                    self.report("[hit] own reported=\(own.map(self.box) ?? "-")")
+                    self.report("[hit] target reported=\(self.box(settled)) "
+                                + "(first seen \(self.box(reported)))")
+
+                    let from = min(own?.minX ?? settled.minX, settled.minX) - 8
+                    let to = max(own?.maxX ?? settled.maxX, settled.maxX) + 8
+                    self.walkHit(from: from, to: to, y: settled.midY, step: 4)
+                }
+            }
+        }
+    }
+
+    /// One row per sample point, naming the owner of the element under it.
+    private func walkHit(from x: CGFloat, to: CGFloat, y: CGFloat, step: CGFloat) {
+        guard x <= to else {
+            report("[hit] done")
+            fold.endTransientReveal()
+            return
+        }
+        let point = CGPoint(x: x, y: y)
+        report(String(format: "[hit]   x=%.0f  %@", x,
+                      MenuBarAgentInventory.describeElement(at: point)))
+        after(0.06) { [weak self] in
+            self?.walkHit(from: x + step, to: to, y: y, step: step)
+        }
+    }
+
+    /// Clicks across the width of a revealed item to find where — if anywhere — it responds.
+    ///
+    /// The controls established that both routes work and that the aiming is right: a press on
+    /// our own status item toggles the bar, and so does a synthetic click at the point
+    /// `clickPoint` computes. So "this app's menu did not open" is not an aiming bug in
+    /// general — but it could still be one for *this* app, if the rectangle the accessibility
+    /// tree reports is not where the item is drawn. Sweeping the whole rectangle tells the two
+    /// apart: a hit anywhere means the aim was merely off, no hit anywhere means the item is
+    /// not reachable by a synthetic click at all and the app's own quirks are the reason.
+    private func runSweepCheck() {
+        guard claim("sweepcheck") else { return }
+        guard let target = targetBundle() else { return }
+        awaitQuiet(within: 6) { [weak self] _ in
+            guard let self else { return }
+            self.fold.beginTransientReveal(target)
+            self.awaitItem(ofBundle: target, within: 5) { items in
+                guard let frame = items.first?.frame else {
+                    self.report("[sweep] \(target): item never appeared")
+                    self.fold.endTransientReveal()
+                    return
+                }
+                self.report("[sweep] \(target) item \(self.box(frame)) quietInterval=\(self.quietInterval)")
+                self.awaitQuiet(within: 6) { _ in
+                    let settled = MenuBarAgentInventory.items(ofBundle: target).first?.frame ?? frame
+                    self.report("[sweep] settled \(self.box(settled))")
+                    self.sweep(target, frame: settled, x: settled.minX, hits: [])
+                }
+            }
+        }
+    }
+
+    private func sweep(_ target: String, frame: CGRect, x: CGFloat, hits: [CGFloat]) {
+        guard x <= frame.maxX else {
+            report("[sweep] \(target): hits at x = \(hits.map { String(format: "%.0f", $0) }.joined(separator: " "))"
+                   + (hits.isEmpty ? "  ← none: not reachable by a synthetic click" : ""))
+            fold.endTransientReveal()
+            after(1.0) { [weak self] in
+                self?.report("[sweep] re-hidden: icon still on the menu bar="
+                             + "\(!MenuBarAgentInventory.items(ofBundle: target).isEmpty)  ← expect false")
+            }
+            return
+        }
+
+        let before = windowOwners()
+        let point = CGPoint(x: x, y: frame.midY)
+        let barBefore = FloatingBarController.shared.isVisible
+        let ownFrame = MenuBarAgentInventory.items(ofBundle: FoldController.ownBundleID).first?.frame
+        StatusItemOpener.click(at: point)
+        after(0.55) { [weak self] in
+            guard let self else { return }
+            let barNow = FloatingBarController.shared.isVisible
+            let opened = self.newWindows(since: before)
+                .filter { !$0.hasPrefix("Window Server@") && !$0.contains("21474836") }
+            self.report("[sweep]   x=\(String(format: "%.0f", x)) "
+                        + "→ \(opened.isEmpty ? "nothing" : opened.sorted().joined(separator: " "))"
+                        + "  bar=\(barBefore)→\(barNow)\(barNow != barBefore ? "  ← HIT OUR OWN ICON" : "")"
+                        + "  own=\(ownFrame.map(self.box) ?? "-")")
+            if !opened.isEmpty { self.pressEscape() }
+            FloatingBarController.shared.hide()
+            self.after(0.45) {
+                self.sweep(target, frame: frame, x: x + 4,
+                           hits: opened.isEmpty ? hits : hits + [x])
+            }
+        }
+    }
+
+    /// The window owners that appeared since `before` — the "did anything open" signal.
+    private func newWindows(since before: Set<String>) -> Set<String> {
+        windowOwners().subtracting(before)
+    }
+
+    /// Puts one hidden icon back on the menu bar and tries to open its own menu.
+    ///
+    /// This measures the whole "click a folded icon and its own menu opens" path, because the
+    /// dump above proves the element has to exist before it can be pressed. One app per run:
+    /// the bundle comes from `/tmp/menubarkeeper-opentarget`, so an earlier app's open menu
+    /// cannot be mistaken for this one's.
+    ///
+    /// It is a control experiment, because "the press succeeded and nothing happened" is
+    /// ambiguous on its own. **Control**: press MenuBarKeeper's own status item, whose effect
+    /// is known — the floating bar toggles — so if that fails the mechanism is wrong and
+    /// nothing below it can be believed. **Treatment**: reveal a hidden app and drive it both
+    /// ways, an accessibility press and a synthetic click, reporting what opened after each.
+    ///
+    /// Everything waits for `awaitQuiet` first. This is what the first attempts got wrong:
+    /// acting the moment an element appeared, while MenuBarAgent was still re-laying the bar
+    /// out, made the control *that cannot fail* fail — it pressed our own icon with no
+    /// effect — and sent the investigation after the wrong suspect entirely.
+    private func runRevealCheck() {
+        guard claim("revealcheck") else { return }
+        awaitQuiet(within: 6) { [weak self] quiet in
+            guard let self else { return }
+            self.report("[reveal] menu bar quiet=\(quiet) collapsed=\(self.fold.isCollapsed) "
+                        + "quietInterval=\(self.quietInterval)")
+
+            let own = MenuBarAgentInventory.items(ofBundle: FoldController.ownBundleID)
+            self.report("[reveal] control: own items=\(own.count) "
+                        + "actions=\(own.first.map { $0.actions.joined(separator: ",") } ?? "-")")
+            let barBefore = FloatingBarController.shared.isVisible
+            guard let item = own.first else {
+                self.report("[reveal] control: own item not found, skipping")
+                self.runRevealTreatment()
+                return
+            }
+            let sent = MenuBarAgentInventory.perform(MenuBarAgentInventory.pressAction, on: item.element)
+            self.after(0.8) {
+                let now = FloatingBarController.shared.isVisible
+                self.report("[reveal] control A. press sent=\(sent) bar \(barBefore) → \(now) "
+                            + "toggled=\(now != barBefore)  ← expect true")
+                FloatingBarController.shared.hide()
+                self.after(0.8) { self.runClickControl(item) }
+            }
+        }
+    }
+
+    /// The second control: the **pointer** route the treatment uses, aimed at our own status
+    /// item, whose effect is known.
+    ///
+    /// The press control validates the accessibility route; this one validates everything the
+    /// click route depends on — that an `AXPosition` is in the coordinate space a `CGEvent`
+    /// wants, that clamping the point into the menu bar strip lands on the item rather than
+    /// beside it, and that a synthetic click reaches a status item at all. Without it, "the
+    /// target app's menu did not open" has too many explanations to choose between.
+    private func runClickControl(_ item: MenuBarAgentInventory.Node) {
+        report("[reveal] control B. own item \(item.frame.map(box) ?? "no-frame")")
+        guard let frame = item.frame, let point = StatusItemOpener.clickPoint(for: frame) else {
+            report("[reveal] control B. not clickable, skipping")
+            runRevealTreatment()
+            return
+        }
+        let before = FloatingBarController.shared.isVisible
+        report("[reveal] control B. clicking \(point)")
+        StatusItemOpener.click(at: point)
+        after(0.8) { [weak self] in
+            guard let self else { return }
+            let now = FloatingBarController.shared.isVisible
+            self.report("[reveal] control B. bar \(before) → \(now) toggled=\(now != before)  ← expect true")
+            FloatingBarController.shared.hide()
+            self.after(0.8) { self.runRevealTreatment() }
+        }
+    }
+
+    /// The treatment half: reveal a hidden app, then try to open its menu two ways.
+    ///
+    /// The accessibility press is tried **after** the bar has gone quiet, not the moment the
+    /// item appears. That distinction matters: the first attempt pressed the item a tenth of a
+    /// second after it came back and concluded from one app that `AXPress` does not work on
+    /// third-party items — when it may simply not work on an item the menu bar has not
+    /// finished re-laying out around.
+    private func runRevealTreatment() {
+        guard let target = targetBundle() else {
+            report("[reveal] nothing to test, skipping")
+            return
+        }
+        report("[reveal] target=\(target)")
+
+        let windowsBefore = windowOwners()
+        let started = ProcessInfo.processInfo.systemUptime
+        fold.beginTransientReveal(target)
+
+        awaitItem(ofBundle: target, within: 5) { [weak self] items in
+            guard let self else { return }
+            let elapsed = ProcessInfo.processInfo.systemUptime - started
+            self.report(String(format: "[reveal] appeared after %.2fs items=%d", elapsed, items.count))
+            guard let item = items.first, let frame = item.frame else {
+                self.report("[reveal] never appeared; reverting")
+                self.fold.endTransientReveal()
+                return
+            }
+            self.report("[reveal] item \(self.box(frame)) "
+                        + "actions=[\(item.actions.joined(separator: ","))]")
+
+            self.awaitQuiet(within: 6) { settled in
+                let wait = ProcessInfo.processInfo.systemUptime - started
+                self.report(String(format: "[reveal] settled after %.2fs quiet=%@", wait, settled ? "yes" : "no"))
+                guard let fresh = MenuBarAgentInventory.items(ofBundle: target).first,
+                      let freshFrame = fresh.frame else {
+                    self.report("[reveal] item vanished before the press; reverting")
+                    self.fold.endTransientReveal()
+                    return
+                }
+                self.report("[reveal] item now \(self.box(freshFrame))")
+                // Our own item's frame is reported too: if the reveal moves it on top of the
+                // target, the click lands on us and the target's silence is explained.
+                self.report("[reveal] own item "
+                            + "\(MenuBarAgentInventory.items(ofBundle: FoldController.ownBundleID).first?.frame.map(self.box) ?? "not found")")
+
+                // Route A: an accessibility press needs nothing from the pointer, so if it
+                // works it is the whole feature with none of the aiming.
+                DispatchQueue.global().asyncAfter(deadline: .now() + 3.5) { self.pressEscape() }
+                let pressed = MenuBarAgentInventory.perform(MenuBarAgentInventory.pressAction,
+                                                            on: fresh.element)
+                self.report("[reveal] A. AXPress sent=\(pressed)")
+                self.after(0.9) {
+                    let opened = self.newWindows(since: windowsBefore)
+                    self.report("[reveal] A. opened=\(opened.sorted())")
+                    guard opened.isEmpty else {
+                        // A route that already opened something makes route B unmeasurable —
+                        // the next click would land in the open menu, not on the item.
+                        self.report("[reveal] B. skipped: A opened \(opened.sorted())")
+                        self.finishTreatment(target, since: windowsBefore)
+                        return
+                    }
+                    guard let point = StatusItemOpener.clickPoint(for: freshFrame) else {
+                        self.report("[reveal] B. no click point for \(self.box(freshFrame))")
+                        self.finishTreatment(target, since: windowsBefore)
+                        return
+                    }
+                    self.report("[reveal] B. clicking \(point)")
+                    StatusItemOpener.click(at: point)
+                    self.after(0.9) {
+                        self.report("[reveal] B. opened=\(self.newWindows(since: windowsBefore).sorted())")
+                        self.finishTreatment(target, since: windowsBefore)
+                    }
+                }
+            }
+        }
+    }
+
+    /// Hides the revealed icon again and reports whether anything opened, plus whether the
+    /// selection survived — the two things a click must not get wrong.
+    private func finishTreatment(_ target: String, since windowsBefore: Set<String>) {
+        fold.endTransientReveal()
+        after(1.0) { [weak self] in
+            guard let self else { return }
+            self.report("[reveal] after re-hide: icon still on the menu bar="
+                        + "\(!MenuBarAgentInventory.items(ofBundle: target).isEmpty)  ← expect false")
+            self.report("[reveal] after re-hide: still open="
+                        + "\(self.newWindows(since: windowsBefore).sorted())")
+            self.report("[reveal] after re-hide: hidden=\(self.fold.hiddenBundles.contains(target)) "
+                        + "released=\(self.fold.releasedBundles.contains(target)) "
+                        + "isCollapsed=\(self.fold.isCollapsed) "
+                        + "lastError=\(self.fold.lastError ?? "nil")")
+        }
+    }
+
+    /// The bundle to act on: the one named in `/tmp/menubarkeeper-opentarget`, else the first
+    /// app in the hidden area. One target per launch keeps a previous app's open menu from
+    /// being mistaken for this one's.
+    private func targetBundle() -> String? {
+        if let named = (try? String(contentsOfFile: "/tmp/menubarkeeper-opentarget",
+                                     encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines), !named.isEmpty {
+            return named
+        }
+        return fold.foldedApplications.first.map { $0.bundleIdentifier ?? "" }
+    }
+
+    private func box(_ rect: CGRect) -> String {
+        String(format: "(%.0f,%.0f %.0f×%.0f)", rect.minX, rect.minY, rect.width, rect.height)
+    }
+
+    /// A number passed in through a file, or nil if the file is absent or unreadable.
+    ///
+    /// The probes need knobs — how long to wait, which app to act on — and `open -a` does not
+    /// carry the shell's environment into the app, so a file is the channel that works.
+    private func contentsOf(_ path: String) -> Double? {
+        guard let text = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        return Double(text.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
+    /// The click shape for this launch, from `/tmp/menubarkeeper-gesture`, else the shipped one.
+    ///
+    /// Format: `state:moveToDown:downToUp:tap`, e.g. `hid:0.08:0.10:cghid`. Anything missing
+    /// falls back to `Gesture.standard`, so an empty file means "what the app does".
+    private func gesture() -> StatusItemOpener.Gesture {
+        var shape = StatusItemOpener.Gesture.standard
+        guard let text = try? String(contentsOfFile: "/tmp/menubarkeeper-gesture",
+                                     encoding: .utf8) else { return shape }
+        let parts = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            .split(separator: ":")
+            .map(String.init)
+        if parts.count > 0 {
+            switch parts[0] {
+            case "hid": shape.stateID = .hidSystemState
+            case "combined": shape.stateID = .combinedSessionState
+            case "private": shape.stateID = .privateState
+            default: break
+            }
+        }
+        if parts.count > 1, let value = Double(parts[1]) { shape.moveToDown = value }
+        if parts.count > 2, let value = Double(parts[2]) { shape.downToUp = value }
+        if parts.count > 3 {
+            switch parts[3] {
+            case "cghid": shape.location = .cghidEventTap
+            case "session": shape.location = .cgSessionEventTap
+            case "annotated": shape.location = .cgAnnotatedSessionEventTap
+            default: break
+            }
+        }
+        return shape
+    }
+
+    /// Polls the accessibility tree until the app owns a menu bar item, or gives up.
+    ///
+    /// Polling rather than a fixed delay: the reveal is applied by the system
+    /// asynchronously and the delay is not documented anywhere, so the honest thing is to
+    /// wait for the condition and record how long it took.
+    private func awaitItem(ofBundle bundle: String,
+                           within deadline: TimeInterval,
+                           then body: @escaping ([MenuBarAgentInventory.Node]) -> Void) {
+        let limit = Date().addingTimeInterval(deadline)
+        func poll() {
+            guard Date() < limit else {
+                body([])
+                return
+            }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let items = MenuBarAgentInventory.items(ofBundle: bundle)
+                DispatchQueue.main.async {
+                    if items.isEmpty {
+                        self.after(0.1, poll)
+                    } else {
+                        body(items)
+                    }
+                }
+            }
+        }
+        poll()
+    }
+
+    /// How long the menu bar has to hold still before a probe will touch it.
+    ///
+    /// Read from `/tmp/menubarkeeper-openquiet` when present, so the threshold can be swept
+    /// without a rebuild — which is the only way to find out what the threshold actually is.
+    private var quietInterval: TimeInterval {
+        guard let text = try? String(contentsOfFile: "/tmp/menubarkeeper-openquiet",
+                                     encoding: .utf8),
+              let value = TimeInterval(text.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return 1.2
+        }
+        return value
+    }
+
+    /// Waits until the menu bar stops changing shape, then calls back with whether it really
+    /// did go quiet (as opposed to the deadline arriving first).
+    ///
+    /// The tree is a *model*, and it settles well before the window server does: an item can
+    /// report its final frame while MenuBarAgent is still re-laying the bar out around it, and
+    /// a click during that is simply swallowed. Waiting for the model to stop changing is the
+    /// closest thing to a readiness signal the system offers, and it turned a control that
+    /// failed for no visible reason into one that passes every time.
+    private func awaitQuiet(within deadline: TimeInterval, then body: @escaping (Bool) -> Void) {
+        let limit = Date().addingTimeInterval(deadline)
+        var lastSignature = ""
+        var stableSince = Date()
+
+        func poll() {
+            DispatchQueue.global(qos: .userInitiated).async {
+                // Position and width only: enough to notice a re-layout, and integers so that
+                // sub-pixel jitter cannot keep the bar "changing" forever.
+                let signature = MenuBarAgentInventory.walk()
+                    .compactMap { node -> String? in
+                        guard let frame = node.frame else { return nil }
+                        return "\(node.bundleIdentifier ?? "-")@\(Int(frame.minX)),"
+                            + "\(Int(frame.minY)),\(Int(frame.width))"
+                    }
+                    .joined(separator: "|")
+                DispatchQueue.main.async {
+                    if signature != lastSignature {
+                        lastSignature = signature
+                        stableSince = Date()
+                    }
+                    let quiet = Date().timeIntervalSince(stableSince) >= self.quietInterval
+                    guard quiet || Date() >= limit else {
+                        self.after(0.15, poll)
+                        return
+                    }
+                    body(quiet)
+                }
+            }
+        }
+        poll()
+    }
+
+    /// Drives the real "click a folded icon" path for several apps and checks the result.
+    ///
+    /// The control experiment above establishes that the mechanism works; this one covers the
+    /// code that ships, app by app, because "one app opens its menu" is not "clicking the bar
+    /// opens menus". It runs three apps rather than one on purpose: the third-party status
+    /// items in a menu bar are written by different people and there is no guarantee they all
+    /// behave alike, so a single pass would be a sample, not a check.
+    ///
+    /// Three things are asserted, and the third is the one most likely to rot:
+    ///
+    /// * a menu window belonging to the app appeared,
+    /// * the icon is gone again afterwards — the reveal really is transient,
+    /// * the user's selection is **untouched**. A reveal must not read as a release: if it
+    ///   did, the app would stop being folded on the next launch, and the symptom would only
+    ///   show up tomorrow.
+    private func runOpenCheck() {
+        guard claim("opencheck") else { return }
+        let selectionBefore = fold.selection
+        // One target per launch, so the measurement is not contaminated by the previous
+        // app's menu still being up. The bundle comes from a file rather than an environment
+        // variable because `open` does not carry the shell's environment across.
+        let requested = (try? String(contentsOfFile: "/tmp/menubarkeeper-opentarget",
+                                     encoding: .utf8))?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let targets: [String]
+        if let requested, !requested.isEmpty {
+            targets = [requested]
+        } else {
+            targets = Array(fold.foldedApplications.compactMap(\.bundleIdentifier).prefix(3))
+        }
+        guard !targets.isEmpty else {
+            report("[open] nothing hidden, skipping")
+            return
+        }
+        report("[open] collapsed=\(fold.isCollapsed) targets=\(targets)")
+        walk(targets, index: 0, selectionBefore: selectionBefore)
+    }
+
+    private func walk(_ targets: [String], index: Int, selectionBefore: FoldController.Selection) {
+        guard index < targets.count else {
+            after(1.2) { [weak self] in
+                guard let self else { return }
+                let after = self.fold.selection
+                self.report("[open] settled: isCollapsed=\(self.fold.isCollapsed) "
+                            + "hidden=\(after.hidden.count) released=\(after.released.count) "
+                            + "unchanged=\(after == selectionBefore)  ← expect true")
+                self.report("[open] settled: still folded off the menu bar = "
+                            + "\(targets.allSatisfy { MenuBarAgentInventory.items(ofBundle: $0).isEmpty }) "
+                            + "  ← expect true")
+                self.report("[open] lastError=\(self.fold.lastError ?? "nil")")
+            }
+            return
+        }
+
+        let bundle = targets[index]
+        // Whatever is already open is reported, so a stray window from an earlier step shows
+        // up as such instead of being read as this app's menu.
+        let windowsBefore = windowOwners()
+        report("[open] \(bundle): before: \(windowsBefore.sorted().joined(separator: " "))")
+
+        var clicked: Bool?
+        // The timeline starts before the click, not after, because the questions are about
+        // when things happen: whether a menu appeared at all, and whether the re-hide at
+        // +0.45 s is what took it away.
+        recordTimeline(since: windowsBefore, for: 3.5) { [weak self] timeline in
+            guard let self else { return }
+            self.report("[open] \(bundle): clicked=\(clicked.map(String.init) ?? "-") "
+                        + "timeline=\(timeline)")
+            self.awaitOffMenuBar(bundle, within: 4.0) { gone in
+                self.report("[open] \(bundle): icon back off the menu bar=\(gone)  ← expect true")
+                self.report("[open] \(bundle): now open: "
+                            + "\(self.newWindows(since: windowsBefore).sorted().joined(separator: " "))")
+                self.pressEscape()
+                self.after(0.9) {
+                    self.walk(targets, index: index + 1, selectionBefore: selectionBefore)
+                }
+            }
+        }
+        StatusItemOpener.open(bundleIdentifier: bundle) { clicked = $0 }
+    }
+
+    /// Samples the window owners every 50 ms and reports only the changes, as
+    /// `seconds:what appeared`.
+    ///
+    /// A single "did a menu open" check cannot tell "never opened" from "opened and was
+    /// closed again", and those two need opposite fixes — one is the click missing, the other
+    /// is the re-hide being too eager. Sampling the whole window over time is what separates
+    /// them, at the cost of a poll that a slide of a few milliseconds either way cannot
+    /// mislead.
+    private func recordTimeline(since before: Set<String>,
+                                for duration: TimeInterval,
+                                then body: @escaping (String) -> Void) {
+        let start = ProcessInfo.processInfo.systemUptime
+        var events: [String] = []
+        var last: Set<String> = []
+
+        func tick() {
+            let elapsed = ProcessInfo.processInfo.systemUptime - start
+            let now = newWindows(since: before)
+            if now != last {
+                events.append(String(format: "%.2f:%@", elapsed,
+                                     now.isEmpty ? "—" : now.sorted().joined(separator: "+")))
+                last = now
+            }
+            guard elapsed < duration else {
+                body(events.joined(separator: "   "))
+                return
+            }
+            after(0.05, tick)
+        }
+        tick()
+    }
+
+    /// Polls until the app owns no item on the menu bar. `false` means it never left.
+    private func awaitOffMenuBar(_ bundle: String,
+                                 within deadline: TimeInterval,
+                                 then body: @escaping (Bool) -> Void) {
+        let limit = Date().addingTimeInterval(deadline)
+        func poll() {
+            DispatchQueue.global(qos: .userInitiated).async {
+                let gone = MenuBarAgentInventory.items(ofBundle: bundle).isEmpty
+                DispatchQueue.main.async {
+                    guard !gone, Date() < limit else {
+                        body(gone)
+                        return
+                    }
+                    self.after(0.2, poll)
+                }
+            }
+        }
+        poll()
+    }
+
+
+    /// The owner and layer of every window on screen.
+    ///
+    /// Used as "did a menu open?" evidence: a menu is a window belonging to the app that
+    /// owns the status item, so it shows up here as an owner that was not there before.
+    /// Owner names and layers need no Screen Recording permission — only window *titles*
+    /// do, and they are not used.
+    private func windowOwners() -> Set<String> {
+        guard let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements],
+                                                    kCGNullWindowID) as? [[String: Any]] else {
+            return []
+        }
+        return Set(list.compactMap { info in
+            guard let owner = info[kCGWindowOwnerName as String] as? String,
+                  let layer = info[kCGWindowLayer as String] as? Int else { return nil }
+            return "\(owner)@\(layer)"
+        })
     }
 
     // MARK: - Interaction probes

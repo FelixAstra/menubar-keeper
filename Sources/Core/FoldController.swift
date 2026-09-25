@@ -55,6 +55,14 @@ final class FoldController {
     /// Whether the hidden area is currently collapsed.
     private(set) var isCollapsed = false
 
+    /// Apps put back on the menu bar for a moment, without changing the selection.
+    ///
+    /// Used to make a folded icon clickable: the icon has to exist on the menu bar before
+    /// its own menu can be opened, and then it goes away again. Deliberately *not*
+    /// persisted — a transient reveal is not a release, and the app must still be folded
+    /// on the next launch.
+    private var transientBundles: Set<String> = []
+
     /// Whether the selection is applied automatically at launch.
     var collapsesOnLaunch: Bool {
         get { UserDefaults.standard.bool(forKey: Keys.collapseOnLaunch) }
@@ -89,6 +97,18 @@ final class FoldController {
     private var generation = 0
     private var rehideWorkItem: DispatchWorkItem?
     private var resyncWorkItem: DispatchWorkItem?
+    private var revealFailsafe: DispatchWorkItem?
+
+    /// One line describing what the mechanism currently believes, for the log.
+    ///
+    /// `apply` is asynchronous and skips a request whose configuration matches the last one it
+    /// *completed*, so the state at any instant is not derivable from the calls made — an
+    /// assertion in flight, a stale `currentConfiguration` and a skipped re-hide all look
+    /// identical from outside. Printing all four together is what tells them apart.
+    var stateSummary: String {
+        "collapsed=\(isCollapsed) restricted=\(currentConfiguration != nil) "
+            + "generation=\(generation) transient=\(transientBundles.sorted())"
+    }
 
     private init() {
         // Auto-fold is the whole point of the app, so it is on unless the user turns it
@@ -170,6 +190,61 @@ final class FoldController {
         isCollapsed ? restore() : collapse()
     }
 
+    // MARK: - Transient reveal
+
+    /// Puts one hidden app back on the menu bar without changing the selection.
+    ///
+    /// The only way to reach an app's own status menu: the system removes a hidden item
+    /// from the accessibility tree entirely (measured — see `Diagnostics.runTreeDump`),
+    /// so there is no element left to press. The icon has to come back first.
+    ///
+    /// Nothing is persisted and `hiddenBundles` is untouched, so `endTransientReveal()`
+    /// restores the exact previous state and the app is folded again on the next launch.
+    func beginTransientReveal(_ bundle: String) {
+        guard hiddenBundles.contains(bundle), !transientBundles.contains(bundle) else { return }
+        transientBundles.insert(bundle)
+        apply(desiredConfiguration())
+        scheduleRevealFailsafe()
+    }
+
+    /// Takes the transiently revealed app back off the menu bar.
+    func endTransientReveal() {
+        revealFailsafe?.cancel()
+        revealFailsafe = nil
+        guard !transientBundles.isEmpty else { return }
+        transientBundles.removeAll()
+        apply(desiredConfiguration())
+    }
+
+    /// Whether `bundle` is on the menu bar only for the moment.
+    func isTransientlyRevealed(_ bundle: String) -> Bool { transientBundles.contains(bundle) }
+
+    /// Puts the icon back after `failsafeRevealTimeout`, whether or not anything asked it to.
+    ///
+    /// A transient reveal is the one state this app can get into where the user's own menu bar
+    /// is left wrong: it is entered for about a second, from a click handler, and left by a
+    /// timer. Anything that drops that timer — a race in `apply`, a request that compares equal
+    /// to one still in flight, a callback the generation guard discards — leaves the icon on
+    /// the menu bar permanently, and a global menu bar edit is exactly the kind of state that
+    /// should not depend on a chain of asynchronous hops all landing. Seen once in five runs
+    /// before this existed: WeChat's icon was still on the bar minutes after the click.
+    ///
+    /// Three seconds is far longer than the 0.9 s the normal path takes and short enough that
+    /// a stuck icon is not something the user has to notice and work around.
+    private func scheduleRevealFailsafe() {
+        revealFailsafe?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, !self.transientBundles.isEmpty else { return }
+            DebugLog.write("[fold] failsafe: a transient reveal outlived its timer, "
+                           + "\(self.stateSummary)")
+            self.endTransientReveal()
+        }
+        revealFailsafe = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.failsafeRevealTimeout, execute: work)
+    }
+
+    private static let failsafeRevealTimeout: TimeInterval = 3
+
     /// Shows everything, then collapses again after `seconds` — for "keep it clean, but
     /// let me take a quick look".
     func expandTemporarily(for seconds: TimeInterval = 10) {
@@ -238,6 +313,7 @@ final class FoldController {
     func shutdown() {
         rehideWorkItem?.cancel()
         resyncWorkItem?.cancel()
+        transientBundles.removeAll()
         restore()
     }
 
@@ -246,7 +322,9 @@ final class FoldController {
     /// Computes the allow-list to submit. Nil means "no restriction, show everything".
     private func desiredConfiguration() -> Configuration? {
         let running = Set(NSWorkspace.shared.runningApplications.compactMap(\.bundleIdentifier))
-        let hidden = hiddenBundles.intersection(running)
+        // Transient reveals are subtracted here rather than removed from `hiddenBundles`,
+        // so the selection the user sees in the window never flickers with them.
+        let hidden = hiddenBundles.intersection(running).subtracting(transientBundles)
         // Nothing to hide means there is no reason to activate the mechanism; activation
         // has side effects, for instance Focus-related system extras can disappear too.
         guard !hidden.isEmpty else { return nil }

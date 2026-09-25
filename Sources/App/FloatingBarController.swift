@@ -33,6 +33,14 @@ final class FloatingBarController: NSObject {
     private var globalMonitor: Any?
     private var localMonitor: Any?
 
+    /// The bar's view hierarchy, for the diagnostics probes.
+    ///
+    /// A probe has to be able to reach the real icon buttons and click the real ones, rather
+    /// than a copy of the logic: the whole point of the acceptance test for "clicking a folded
+    /// icon opens the app's own menu" is that it goes through `iconClicked(_:)` and everything
+    /// downstream. Read-only; nothing outside the probes uses it.
+    var viewForDiagnostics: NSView? { panel?.contentView }
+
     /// Briefly ignores "outside" clicks right after opening, otherwise the click that
     /// opened the bar would immediately close it. Held on the monotonic clock
     /// (`systemUptime`) rather than wall time, so a clock change cannot leave the window
@@ -380,9 +388,9 @@ final class FloatingBarController: NSObject {
 
     // MARK: - Per-icon context menu
 
-    /// A hidden app cannot expose its own menu (the icon is gone from the accessibility
-    /// tree too), so the common actions are provided here; for the full original menu,
-    /// "Restore to menu bar" puts the icon back first.
+    /// A hidden app cannot be *asked* for its menu — a menu can only be read by opening it
+    /// — so the actions MenuBarKeeper can offer on its own are listed here, next to the ones
+    /// that reach the app itself. The app's real menu is on the left click.
     private func contextMenu(for app: NSRunningApplication) -> NSMenu {
         let name = app.localizedName ?? L("common.thisApp")
         let menu = NSMenu()
@@ -424,12 +432,20 @@ final class FloatingBarController: NSObject {
         let bundle = sender.identifier?.rawValue ?? ""
         hide()
         guard !bundle.isEmpty else { return }
-        // Activate only, never launch: the icon stands for an app that is already
-        // running. The panel does not take activation, so this app never becomes
-        // frontmost and the activation is not refused.
-        NSRunningApplication.runningApplications(withBundleIdentifier: bundle)
-            .first?
-            .activate()
+        // Left click does what clicking the menu bar icon would have done: the app's own
+        // menu opens. `StatusItemOpener` documents what that costs and why it is not a
+        // plain accessibility press.
+        StatusItemOpener.open(bundleIdentifier: bundle) { clicked in
+            guard !clicked else { return }
+            // Nothing could be clicked — no Accessibility permission, or the icon never
+            // came back. Bringing the app forward is a weaker answer than the menu it asked
+            // for, but it is an answer; leaving the click doing nothing is what this
+            // replaced.
+            DebugLog.write("[bar] \(bundle): falling back to activation")
+            NSRunningApplication.runningApplications(withBundleIdentifier: bundle)
+                .first?
+                .activate(from: .current, options: [])
+        }
     }
 
     /// The show/hide menu bar toggle. Showing leaves things shown — there is no timer to
@@ -544,9 +560,10 @@ final class FloatingBarController: NSObject {
 
 /// An app icon on the floating bar.
 ///
-/// A subclass purely for **right-click**: the icons stand for status items the system
-/// has hidden, so they cannot be clicked on the user's behalf and the app's own menu is
-/// unreachable. A context menu stands in for it.
+/// A subclass for **right-click**: a left click opens the app's own status menu through
+/// `StatusItemOpener`, but the icon still cannot be *queried* the way a real menu bar icon
+/// can — there is no way to ask what its menu contains without opening it — so the actions
+/// that exist only in MenuBarKeeper (stop hiding this app, quit it) are given a home here.
 private final class IconButton: NSButton {
 
     var contextMenu: NSMenu?

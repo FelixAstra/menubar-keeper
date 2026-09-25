@@ -2,14 +2,11 @@ import AppKit
 
 /// What can be done to an app living in the hidden area.
 ///
-/// Why this layer has to exist: once an icon is hidden it is **no longer clickable** —
-/// after the system hides it, the status item does not even appear in the accessibility
-/// tree (see `docs/TECHNICAL-FINDINGS.md`). So it cannot be clicked on the user's
-/// behalf, which also means the app's own menu cannot be fetched.
-///
-/// What is offered instead: common actions are performed directly, and for anything
-/// else "Restore to menu bar" puts a single icon back so the user can right-click it
-/// and use the app's real menu.
+/// Why this layer has to exist: once an icon is hidden it leaves the accessibility tree
+/// completely, so there is no element to query — see `StatusItemOpener` for the measurement
+/// and for how the app's own status menu is reached anyway. What is left for this type is
+/// everything that is *not* the status item: quitting, hiding, revealing in Finder, and the
+/// standard ⌘, that opens Preferences.
 enum AppActions {
 
     /// Brings the app to the front. Activation only — the icon already represents a

@@ -114,13 +114,13 @@
 "bar.openMainWindow" = "打开菜单栏管家主窗口";
 "bar.toggle.expand" = "展开 —— 让图标回到菜单栏（再点一次收回）";
 "bar.toggle.collapse" = "收回 —— 把图标收回这条悬浮条（再点一次展开）";
-"bar.icon.tooltip" = "%@\n左键切换过去 · 右键更多操作";
+"bar.icon.tooltip" = "%@\n左键打开它的菜单 · 右键更多操作";
 
 "bar.menu.open" = "打开 %@";
 "bar.menu.preferences" = "偏好设置…";
 "bar.menu.preferences.tooltip" = "切到该 App 并按下 ⌘,";
 "bar.menu.preferences.tooltip.denied" = "需要先授予「辅助功能」权限";
-"bar.menu.reveal" = "放回菜单栏（用它自己的菜单）";
+"bar.menu.reveal" = "保留在菜单栏";
 "bar.menu.hide" = "隐藏窗口（⌘H）";
 "bar.menu.revealInFinder" = "在访达中显示";
 "bar.menu.quit" = "退出 %@";
