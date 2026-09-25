@@ -4,6 +4,9 @@ name: Release
 # release. The asset name has no version in it on purpose, so the README can link to
 # /releases/latest/download/MenuBarKeeper.dmg and never go stale.
 #
+# The release body is taken from CHANGELOG.md — see `release-notes.yml` for why, and for the
+# job that fills in the pages published before that was true.
+#
 # workflow_dispatch runs the same build but stops before publishing — useful to check the
 # toolchain still compiles the app without cutting a release.
 
@@ -75,6 +78,38 @@ jobs:
           path: build/MenuBarKeeper.dmg
           if-no-files-found: error
 
+      # The release body is the changelog section for this version, not GitHub's generated
+      # notes. Generated notes list merged pull requests, and this repository has none — every
+      # release up to 1.4.0 came out holding a compare link and nothing else, so the hand-written
+      # changelog (the record the README points readers at) was never on the release page.
+      - name: Release notes from the changelog
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          V="${{ steps.version.outputs.value }}"
+          NOTES=build/notes.md
+          mkdir -p build
+
+          # A read failure is a real error and stops the job (`set -e`); a version with no
+          # section prints nothing and exits 0, and is what the check below is for.
+          ./Scripts/changelog-section.sh "$V" > "$NOTES"
+          if [ ! -s "$NOTES" ]; then
+            echo "::error::CHANGELOG.md has no section for $V — add one before tagging"
+            exit 1
+          fi
+
+          # Keep the one line GitHub's own notes get right: a link to the full diff.
+          PREV="$(git describe --tags --abbrev=0 "${TAG}^" 2>/dev/null || true)"
+          if [ -n "$PREV" ]; then
+            DIFF="${{ github.server_url }}/${{ github.repository }}/compare/$PREV...$TAG"
+          else
+            DIFF="${{ github.server_url }}/${{ github.repository }}/commits/$TAG"
+          fi
+          printf '\n**Full Changelog**: %s\n' "$DIFF" >> "$NOTES"
+
+          echo "notes for $TAG ($(wc -l < "$NOTES" | tr -d ' ') lines, ${PREV:-no previous tag})"
+
       # gh is preinstalled on GitHub runners and is authenticated by GH_TOKEN, so no
       # third-party release action is needed.
       - name: Publish release
@@ -85,10 +120,12 @@ jobs:
           set -euo pipefail
           TAG="$GITHUB_REF_NAME"
           if gh release view "$TAG" >/dev/null 2>&1; then
+            # Re-tagged: refresh the notes too, or the page keeps whatever it had.
+            gh release edit "$TAG" --notes-file build/notes.md
             gh release upload "$TAG" build/MenuBarKeeper.dmg --clobber
           else
             gh release create "$TAG" build/MenuBarKeeper.dmg \
               --title "$TAG" \
-              --generate-notes
+              --notes-file build/notes.md
           fi
           echo "Attached to: ${{ github.server_url }}/${{ github.repository }}/releases/tag/$TAG"

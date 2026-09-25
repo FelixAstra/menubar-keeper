@@ -1,0 +1,99 @@
+name: Release notes
+
+# Fills in the release pages that have no notes, from CHANGELOG.md.
+#
+# Why these pages are empty to begin with: the tag-triggered release job asked GitHub to
+# generate the notes, and generated notes are a list of merged pull requests. This repository
+# has no pull requests — work lands straight on main — so every release through 1.4.0 was
+# published holding GitHub's one-line compare link and nothing else. The hand-written changelog
+# is the record, and the README points readers at it, so it is what the release pages should
+# show. `release.yml` now does that at publish time; this job is for the pages that predate it.
+#
+# Only pages with no notes are touched: the body must consist of nothing but GitHub's
+# "Full Changelog" line. A body with prose in it was written by someone, and is left alone —
+# so this is safe to run as often as you like, and safe to leave in the changelog's path.
+#
+# Runs when the changelog changes, and by hand when you want it now.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - CHANGELOG.md
+      - Scripts/changelog-section.sh
+      - .github/workflows/release-notes.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  backfill:
+    name: Backfill release notes
+    # No build: this job reads CHANGELOG.md and the git tags, both of which come with the
+    # checkout. A macOS runner would cost ten times as much to do the same text processing.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Every tag, so `git describe` can find the previous release for the compare link.
+          fetch-depth: 0
+
+      - name: Fill in the pages that have no notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          filled=0
+
+          # The runner's temp directory, not the checkout: these lines are worth running by
+          # hand when a page needs filling in, and writing into the working tree leaves a
+          # `notes.md` that looks like a repository file — which is how one got committed the
+          # first time this was tested. Created up front so that an unwritable path stops the
+          # job here rather than at the first redirect, where every tag would be skipped and
+          # the run would still report success.
+          notes_dir="${RUNNER_TEMP:-${TMPDIR:-/tmp}}/menubarkeeper-notes"
+          mkdir -p "$notes_dir"
+
+          for tag in $(git tag --list 'v*' --sort=v:refname); do
+            # A tag with no release, or a token that cannot see it: nothing to fill in.
+            body="$(gh release view "$tag" --json body --jq .body 2>/dev/null || true)"
+            if [ -z "${body//[[:space:]]/}" ]; then
+              echo "skip $tag — no release, or no body at all"
+              continue
+            fi
+
+            # Anything that is not GitHub's own compare line counts as notes someone wrote.
+            prose="$(printf '%s\n' "$body" \
+              | grep -v '^[[:space:]]*$' \
+              | grep -v '^\*\*Full Changelog\*\*' || true)"
+            if [ -n "$prose" ]; then
+              echo "keep $tag — already has notes"
+              continue
+            fi
+
+            version="${tag#v}"
+            notes="$notes_dir/$tag.md"
+            # A read failure is a real error and stops the job (`set -e`); a version with no
+            # section prints nothing and exits 0, which is the case this branch is for.
+            ./Scripts/changelog-section.sh "$version" > "$notes"
+            if [ ! -s "$notes" ]; then
+              echo "skip $tag — CHANGELOG.md has no section for $version"
+              continue
+            fi
+
+            prev="$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)"
+            if [ -n "$prev" ]; then
+              diff_url="${{ github.server_url }}/${{ github.repository }}/compare/$prev...$tag"
+            else
+              diff_url="${{ github.server_url }}/${{ github.repository }}/commits/$tag"
+            fi
+            printf '\n**Full Changelog**: %s\n' "$diff_url" >> "$notes"
+
+            gh release edit "$tag" --notes-file "$notes"
+            echo "filled $tag (${prev:-first release}, $(wc -l < "$notes" | tr -d ' ') lines)"
+            rm -f "$notes"
+            filled=$((filled + 1))
+          done
+
+          echo "filled $filled release page(s)"
