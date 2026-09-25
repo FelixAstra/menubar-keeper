@@ -2,7 +2,7 @@
 
 **Hide the menu bar icons you don't need — and get them back with one click.**
 
-[**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文
+[**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文 · [What's new](CHANGELOG.md)
 
 <img src="docs/images/menu-bar.png?v=6" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
 
@@ -29,11 +29,13 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 | **See** | Every menu bar icon, grouped by the app that owns it |
 | **Hide** | On launch it hides every app it finds on the menu bar — nothing to set up |
 | **Reach** | Click the menu bar icon and the hidden ones drop down right underneath it |
-| **Act** | Right-click a hidden icon to open, quit, or send the app back to the menu bar |
+| **Act** | Click a hidden icon to open that app's own menu; right-click it to open, quit, or send it back |
 | **Undo** | *Show all* restores everything; quitting the app always does too |
-| **Style** | The menu bar mark is yours: the brand capsule, or a daisy that changes with the state |
+| **Style** | Your call: the menu bar wears the brand capsule, or a daisy that follows the state |
 
-Hidden apps keep running. Only the icon goes away.
+Hidden apps keep running. Only the icon goes away — and the daisy beside each app in the list
+says which state it is in at a glance: **coloured and smiling** while it is folded away, **grey
+and asleep** while it is back on the menu bar.
 
 ### What happens on launch
 
@@ -49,17 +51,21 @@ The scan is skipped if the app is not running from `/Applications` — see below
 | Action | Result |
 |---|---|
 | Click the menu bar icon | Show / hide the floating bar of hidden icons |
-| Right-click it (or ⌥-click) | Menu: expand all, permissions, help, quit |
+| Right-click it (or ⌥-click) | Menu: reveal the hidden icons, show every icon, a 10-second peek, permissions, help, quit |
 | Click a row in the window | Hide / unhide that app — an app you unhide is not auto-hidden again |
 | Click *System items (N)* in the window | See the items macOS manages, which can never be hidden |
 | Click the picker in the window's title row | Menu bar mark: the brand capsule, or a daisy that follows the state |
-| Right-click an icon in the floating bar | Open, Preferences, Hide, Put back, Quit |
+| Click an icon in the floating bar | That app's own menu — the icon briefly returns to the menu bar to open it |
+| Right-click an icon in the floating bar | Open, Preferences…, Keep on the menu bar, Hide windows, Reveal in Finder, Quit, Force Quit… |
 | ⌥⌘M | Show / hide the floating bar |
 | ⌥⌘\\ | Collapse / expand the menu bar |
 
-**Putting an app back** is how you reach the rest of its own menu: a hidden icon is not in
-the system's accessibility tree at all, so its original menu cannot be reproduced. Send it
-back to the menu bar for a moment, use it, then hide it again.
+**Picking from an app's own menu.** A hidden icon is not in the system's accessibility tree
+at all, so its menu cannot be reconstructed from outside — it has to be opened by a real click
+on a real icon. Clicking one in the floating bar therefore sends that icon back to the menu
+bar for a fraction of a second, clicks it, and hides it again; the menu stays open while the
+icon leaves. Without Accessibility permission there is nothing to click, so the click falls
+back to bringing the app forward — weaker than what was asked for, but never a no-op.
 
 ## Why /Applications matters
 
@@ -93,12 +99,13 @@ than an image library you would have to install first.
 ## How it works
 
 Menu bar icon visibility is driven by a private framework (`MenuBarClientCore`), and icon
-ownership is read from the accessibility tree of the system's menu bar agent. Two short
+ownership is read from the accessibility tree of the system's menu bar agent. A few short
 documents cover the rest:
 
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — modules and data flow
 - [docs/TECHNICAL-FINDINGS.md](docs/TECHNICAL-FINDINGS.md) — the reverse-engineered API notes and the pitfalls behind them
 - [docs/ROADMAP.md](docs/ROADMAP.md) — known gaps, and what is impossible rather than merely missing
+- [CHANGELOG.md](CHANGELOG.md) — what changed in each release, in full
 
 ## Limitations
 
