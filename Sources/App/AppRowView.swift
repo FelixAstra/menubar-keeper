@@ -14,6 +14,8 @@ final class AppRowView: NSView {
         /// counts stay in line across both sections of the list. Matches the width the
         /// stack actually gives the checkbox — measured, not guessed.
         static let choiceColumn: CGFloat = 16
+        /// Side of the state daisy between the count and the checkbox.
+        static let daisySize: CGFloat = 18
     }
 
     let entry: MenuBarAppEntry
@@ -44,6 +46,7 @@ final class AppRowView: NSView {
         let iconView = makeIconView()
         let textStack = makeTextStack()
         let meta = makeMetaLabel()
+        let daisy = makeDaisyView()
 
         markCheckbox.target = self
         markCheckbox.action = #selector(checkboxToggled)
@@ -54,7 +57,7 @@ final class AppRowView: NSView {
         // as "click here to hide this", which is the one thing the row cannot do. A column
         // of greyed-out boxes also made the list look broken rather than deliberate. These
         // rows live in their own section, which says the same thing in words.
-        var content: [NSView] = [iconView, textStack, meta]
+        var content: [NSView] = [iconView, textStack, meta, daisy]
         content.append(entry.canFold ? markCheckbox : reservedChoiceColumn())
 
         let row = NSStackView(views: content)
@@ -141,6 +144,26 @@ final class AppRowView: NSView {
         label.setContentHuggingPriority(.required, for: .horizontal)
         label.setContentCompressionResistancePriority(.required, for: .horizontal)
         return label
+    }
+
+    /// The state daisy at the row's right end: coloured and smiling when this app is
+    /// folded away, grey and asleep while it is on the menu bar.
+    ///
+    /// The picture carries the state at a glance — which is its whole value, since the
+    /// words beside it are small and monochrome. A missing asset simply leaves the view
+    /// empty; the words still say what the state is.
+    private func makeDaisyView() -> NSView {
+        let view = NSImageView()
+        view.image = AppIcons.daisy(folded: entry.itemCount == 0)
+        view.imageScaling = .scaleProportionallyUpOrDown
+        view.setContentHuggingPriority(.required, for: .horizontal)
+        view.setContentCompressionResistancePriority(.required, for: .horizontal)
+        view.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            view.widthAnchor.constraint(equalToConstant: Metrics.daisySize),
+            view.heightAnchor.constraint(equalToConstant: Metrics.daisySize),
+        ])
+        return view
     }
 
     // MARK: - Selection

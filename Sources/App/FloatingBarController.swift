@@ -408,7 +408,12 @@ final class FloatingBarController: NSObject {
         menu.addItem(preferences)
 
         menu.addItem(.separator())
-        menu.addItem(contextItem(L("bar.menu.reveal"), #selector(revealInMenuBar(_:)), app: app))
+        // The trowel marks the one action that puts the app back on the menu bar — the
+        // same mark the main window uses for state, so "restore" looks like "restore"
+        // wherever it appears.
+        let reveal = contextItem(L("bar.menu.reveal"), #selector(revealInMenuBar(_:)), app: app)
+        reveal.image = AppIcons.trowel()
+        menu.addItem(reveal)
         menu.addItem(contextItem(L("bar.menu.hide"), #selector(hideApp(_:)), app: app))
         menu.addItem(contextItem(L("bar.menu.revealInFinder"), #selector(revealInFinder(_:)), app: app))
 

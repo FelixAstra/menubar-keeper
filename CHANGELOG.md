@@ -4,6 +4,37 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-09-25
+
+### Added
+
+- **Clicking a folded icon on the floating bar now opens the app's own menu**, the way
+  clicking the menu bar icon would have. Three measured facts forced the shape: a hidden
+  status item leaves the accessibility tree completely (so the icon has to come back
+  first); `AXPress` on a third-party item returns success and does nothing (MenuBarKeeper's
+  own item — the control group — does respond, so the mechanism is sound and the foreign
+  items simply ignore it); and a synthetic click only lands once the menu bar has finished
+  re-flowing after the reveal, which is why the click waits 0.35 s for the item's frame to
+  hold still. The reveal itself lands in 0.07–0.11 s, the icon goes back after 0.45 s, and
+  an open menu survives the icon vanishing — which keeps this two steps rather than a state
+  machine tracking a foreign menu. A 3 s failsafe re-hides the icon no matter what, because
+  a transient reveal is the one state where a dropped asynchronous hop leaves the user's
+  menu bar wrong; it fired once in five runs before it existed. If nothing can be clicked —
+  no Accessibility permission, or the icon never came back — the old activate fallback runs,
+  so a click is never a no-op.
+- **Garden state icons**, replacing the monochrome capsule for state display: a coloured,
+  smiling daisy while icons are folded away, a grey, sleeping one while everything is on
+  the menu bar — in the menu bar itself and at the right end of every row of the app list.
+  The trowel marks the actions that put an app back on the menu bar.
+
+### Changed
+
+- The menu bar icon is the state daisy now, not the template capsule: full colour on
+  purpose, since the entire point of the design is the colour difference between the two
+  states and template recolouring would flatten both to the same monochrome shape. The
+  capsule stays as the brand mark in the window's title row and as the fallback if the
+  daisy assets are missing — nothing depends on artwork being present in order to work.
+
 ## [1.2.0] - 2026-09-25
 
 ### Added
@@ -178,6 +209,7 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.3.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.3.0
 [1.2.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.2.0
 [1.1.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.1.0
 [1.0.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.0.0

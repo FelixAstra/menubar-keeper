@@ -204,14 +204,17 @@ thread is parked inside the menu's event tracking.
   Python so that `make icon` works on a fresh clone: the earlier Pillow version needed a
   `pip install` that nothing declared, and read its input from a gitignored folder.
   `Supporting/AppIconSource.png` is the tracked source.
-- **The menu bar icon is a template image** (`isTemplate = true`): the opaque pixels are
-  recoloured by the system, so a single black-and-transparent artwork is correct in both
-  light and dark menu bars. Do not communicate state through `alphaValue` on a template
-  image — it just looks washed out. Supply separate `...Collapsed` / `...Expanded` assets
-  instead; the loader already looks for them.
-- **Sizing**: menu bar assets are specified in points (`44 × 18` here) with an `@2x` variant
-  for Retina. The build copies `Resources/` verbatim, so `.lproj` folders and image variants
-  keep their structure.
+- **Template images recolour away any state carried by colour.** The menu bar icon was a
+  template image (`isTemplate = true`): a single black-and-transparent artwork, correct in
+  both light and dark menu bars. Since 1.3.0 the state icons are the daisies — coloured and
+  smiling when folded, grey and asleep when expanded — and the whole point of that design is
+  the colour difference, which template recolouring would flatten to one monochrome shape.
+  So the daisies load with `isTemplate = false` and the capsule remains only as the brand
+  mark and the fallback. The rule that survives: never communicate state through
+  `alphaValue`, and never put two states that differ only by colour into a template image.
+- **Sizing**: menu bar assets are specified in points (the capsule was `44 × 18`, the daisy
+  is an 18 pt square) with an `@2x` variant for Retina. The build copies `Resources/`
+  verbatim, so `.lproj` folders and image variants keep their structure.
 
 ## 8. Signing and the Accessibility grant
 
