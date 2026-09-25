@@ -4,6 +4,48 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0] - 2026-09-26
+
+### Added
+
+- **The daisy at the end of every app list row is a control now, not a picture.** Point at a
+  folded row and it becomes the trowel, with a tooltip saying what the click will do
+  (*取消收折，恢复到菜单栏* / *Show — put this app's icon back on the menu bar*); click it and the
+  app changes state. It goes through the same path as clicking the row and as the checkbox, so
+  there is one state with three ways in rather than three controls that can drift apart.
+- A `rowstatecheck` probe covers it end to end: what each mark shows at rest and under the
+  pointer, that a click on the control really moves the app, and — the failure worth catching —
+  that no row ends up saying one thing while the selection says another. A hover cannot be
+  synthesised the way a click can (there is no event to post that AppKit delivers as
+  `mouseEntered`), so the probe puts the control into the state the tracking area would and
+  then reads back the mark it draws. It restores the selection exactly as it found it, then
+  reports every row row-by-row.
+
+### Changed
+
+- **Both states of the row now say the same kind of thing.** The column used to report the
+  app's icon count while it was on the menu bar and switch to a word once it was hidden, so one
+  column answered two different questions and the two states did not look like each other. It
+  is a state word in both states now — *已收折* / *未收折*, *hidden* / *shown* — which is the
+  one thing it can say that is true of the row rather than of the last scan.
+- The row's daisy and word follow the selection the moment it changes, rather than the next
+  scan a second later. A row that disagreed with its own checkbox for that second read as
+  broken; whether the system actually applied the change is the headline's job, not the row's.
+- A row whose app can never be hidden (a system item, or MenuBarKeeper itself) keeps the plain
+  sleeping daisy and gets no tooltip, no highlight and no click — the control never offers an
+  action it cannot perform.
+- The demonstration's walkthrough now points at each row's state mark instead of the middle of
+  the row, so the trowel the swap produces is actually visible in the animation.
+
+### Fixed
+
+- The floating bar's trowel was commented as "the same mark the main window uses for state",
+  which had never been true — the window used the daisies and the trowel appeared nowhere in
+  it. The comment says what the mark means in each place now.
+- The demonstration's list rows show the state mark and the state word the app shows. They had
+  gone on saying *1 icon* with no mark since 1.3.0, so the README's walkthrough was advertising
+  a window that no longer existed.
+
 ## [1.4.0] - 2026-09-25
 
 ### Added
@@ -237,6 +279,7 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.5.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.0
 [1.4.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.4.0
 [1.3.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.3.0
 [1.2.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.2.0

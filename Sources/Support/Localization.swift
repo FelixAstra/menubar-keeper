@@ -75,14 +75,6 @@ enum L10n {
         String(format: t(key), locale: Locale.current, arguments: arguments)
     }
 
-    /// Picks between two keys based on `count`.
-    ///
-    /// A singular/plural pair is enough for the two languages we ship. Languages
-    /// with richer plural rules would need a `.stringsdict` instead.
-    static func plural(_ count: Int, singular: String, plural many: String) -> String {
-        t(count == 1 ? singular : many, count)
-    }
-
     // MARK: - Switching
 
     /// Persists a new choice and restarts the app.

@@ -14,12 +14,13 @@ final class AppRowView: NSView {
         /// counts stay in line across both sections of the list. Matches the width the
         /// stack actually gives the checkbox — measured, not guessed.
         static let choiceColumn: CGFloat = 16
-        /// Side of the state daisy between the count and the checkbox.
-        static let daisySize: CGFloat = 18
     }
 
     let entry: MenuBarAppEntry
     private let markCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    /// The state word and the state daisy, which together say what this row is doing.
+    private let metaLabel = NSTextField(labelWithString: "")
+    private let stateButton = StateDaisyButton()
 
     /// Called when the selection changes, so the change can be applied and persisted.
     var onMarkChange: ((AppRowView) -> Void)?
@@ -27,7 +28,15 @@ final class AppRowView: NSView {
     /// Whether this app is in the hidden area.
     var isMarked: Bool {
         get { markCheckbox.state == .on }
-        set { markCheckbox.state = newValue ? .on : .off }
+        set {
+            markCheckbox.state = newValue ? .on : .off
+            // The daisy and the word follow the selection rather than the last scan. The row
+            // is one answer to one question — "is this app folded away?" — so all three of its
+            // controls have to agree; the scan cannot refresh for another second, and a row
+            // that disagrees with its own checkbox for that second reads as broken. Whether
+            // the system actually applied it is the headline's job, not the row's.
+            syncState()
+        }
     }
 
     init(entry: MenuBarAppEntry) {
@@ -45,19 +54,24 @@ final class AppRowView: NSView {
     private func build() {
         let iconView = makeIconView()
         let textStack = makeTextStack()
-        let meta = makeMetaLabel()
-        let daisy = makeDaisyView()
+        makeMetaLabel()
 
         markCheckbox.target = self
         markCheckbox.action = #selector(checkboxToggled)
         markCheckbox.toolTip = L("row.checkbox.tooltip")
         markCheckbox.setContentHuggingPriority(.required, for: .horizontal)
 
+        // The daisy and the word are one control between them: the word says the state, the
+        // daisy shows it, and clicking the daisy changes it. Both sit to the left of the
+        // checkbox, so the column that lines up down the right-hand edge keeps lining up.
+        stateButton.isInteractive = entry.canFold
+        stateButton.onActivate = { [weak self] in self?.toggleMark() }
+
         // A row that cannot be hidden shows no checkbox at all — a disabled one still reads
         // as "click here to hide this", which is the one thing the row cannot do. A column
         // of greyed-out boxes also made the list look broken rather than deliberate. These
         // rows live in their own section, which says the same thing in words.
-        var content: [NSView] = [iconView, textStack, meta, daisy]
+        var content: [NSView] = [iconView, textStack, metaLabel, stateButton]
         content.append(entry.canFold ? markCheckbox : reservedChoiceColumn())
 
         let row = NSStackView(views: content)
@@ -80,6 +94,7 @@ final class AppRowView: NSView {
             row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.verticalInset),
         ])
 
+        syncState()
         toolTip = L(entry.canFold ? "row.tooltip" : "row.tooltip.locked")
     }
 
@@ -129,54 +144,47 @@ final class AppRowView: NSView {
         return stack
     }
 
-    /// A hidden app no longer appears in the accessibility tree, so its item count is
-    /// zero — describe that state in words instead of showing "0".
-    private func makeMetaLabel() -> NSTextField {
-        let text: String
-        if entry.itemCount == 0 {
-            text = L("row.meta.folded")
-        } else {
-            text = L10n.plural(entry.itemCount, singular: "row.meta.one", plural: "row.meta.many")
-        }
-        let label = NSTextField(labelWithString: text)
-        label.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
-        label.textColor = entry.itemCount == 0 ? .tertiaryLabelColor : .secondaryLabelColor
-        label.setContentHuggingPriority(.required, for: .horizontal)
-        label.setContentCompressionResistancePriority(.required, for: .horizontal)
-        return label
+    /// The state word: folded away, or on the menu bar.
+    ///
+    /// It used to report the app's icon count while the app was on the bar and only switched to
+    /// a word once it was hidden, so the same column answered two different questions and the
+    /// two states did not look like each other. A state word in both states is the one thing
+    /// the column can say that is true of the row rather than of the scan.
+    private func makeMetaLabel() {
+        metaLabel.font = .monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+        metaLabel.setContentHuggingPriority(.required, for: .horizontal)
+        metaLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
     }
 
-    /// The state daisy at the row's right end: coloured and smiling when this app is
-    /// folded away, grey and asleep while it is on the menu bar.
+    /// Puts the row's controls in step with `isMarked`.
     ///
-    /// The picture carries the state at a glance — which is its whole value, since the
-    /// words beside it are small and monochrome. A missing asset simply leaves the view
-    /// empty; the words still say what the state is.
-    private func makeDaisyView() -> NSView {
-        let view = NSImageView()
-        view.image = AppIcons.daisy(folded: entry.itemCount == 0)
-        view.imageScaling = .scaleProportionallyUpOrDown
-        view.setContentHuggingPriority(.required, for: .horizontal)
-        view.setContentCompressionResistancePriority(.required, for: .horizontal)
-        view.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            view.widthAnchor.constraint(equalToConstant: Metrics.daisySize),
-            view.heightAnchor.constraint(equalToConstant: Metrics.daisySize),
-        ])
-        return view
+    /// The checkbox is the state; these are its two other faces. `isMarked`'s setter and
+    /// `build()` are the only callers, so there is no path that changes one and forgets the
+    /// others.
+    private func syncState() {
+        let folded = isMarked
+        stateButton.isFolded = folded
+        metaLabel.stringValue = L(folded ? "row.state.folded" : "row.state.unfolded")
+        // Dimmer when folded: a folded app is the quiet case — it is doing nothing on the menu
+        // bar — while a visible one is the row the user is most likely looking for.
+        metaLabel.textColor = folded ? .tertiaryLabelColor : .secondaryLabelColor
     }
 
     // MARK: - Selection
 
     /// Clicking anywhere on the row toggles the selection — easier to hit than the
-    /// small checkbox alone.
+    /// small checkbox alone. The state daisy does the same thing through the same path.
     override func mouseDown(with event: NSEvent) {
-        guard entry.canFold else { return }
-        isMarked.toggle()
-        onMarkChange?(self)
+        toggleMark()
     }
 
     @objc private func checkboxToggled() {
+        onMarkChange?(self)
+    }
+
+    private func toggleMark() {
+        guard entry.canFold else { return }
+        isMarked.toggle()
         onMarkChange?(self)
     }
 }

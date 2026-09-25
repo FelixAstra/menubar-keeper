@@ -221,6 +221,19 @@ thread is parked inside the menu's event tracking.
   own scale resized the control — and shifted the headline beside it — on every switch. The
   build copies `Resources/` verbatim, so `.lproj` folders and image variants keep their
   structure.
+- **A hover cannot be synthesised, only a state can be set.** A click is testable because there
+  is an event to post and a target/action to fire, which is how the menu-item and row-mark
+  probes drive the real control instead of calling the model behind it. There is no equivalent
+  for `mouseEntered`: nothing can be posted that AppKit will deliver as a pointer entering a
+  view. So `StateDaisyButton.isHovering` is a settable property that the tracking area drives in
+  normal use and the probe sets directly, and the check reads back the *mark* — the three marks
+  are all 18 pt full-colour images, so only the name the control reports says which one is on
+  screen.
+- **One state, three ways in — so the row owns it.** The checkbox, a click anywhere on the row,
+  and the state daisy all ask the row to toggle, and the row's `isMarked` setter is the only
+  thing that writes the checkbox, the word and the daisy. The alternative — each control
+  updating itself — is what makes a row's word disagree with its own checkbox for the second
+  between a click and the next scan.
 
 ## 8. Signing and the Accessibility grant
 

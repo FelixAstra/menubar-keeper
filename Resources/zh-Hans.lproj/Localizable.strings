@@ -99,9 +99,10 @@
 
 /* MARK: - 列表行 */
 
-"row.meta.folded" = "已收起";
-"row.meta.one" = "1 个图标";
-"row.meta.many" = "%d 个图标";
+"row.state.folded" = "已收折";
+"row.state.unfolded" = "未收折";
+"row.state.restore.tooltip" = "取消收折，恢复到菜单栏";
+"row.state.fold.tooltip" = "收折起来，图标移出菜单栏";
 "row.checkbox.tooltip" = "勾选后，该 App 的菜单栏图标会被收进隐藏区";
 "row.tooltip" = "点击整行即可勾选 / 取消";
 "row.tooltip.locked" = "系统组件或本工具自身，不参与折叠";

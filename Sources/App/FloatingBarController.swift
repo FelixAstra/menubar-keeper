@@ -408,9 +408,10 @@ final class FloatingBarController: NSObject {
         menu.addItem(preferences)
 
         menu.addItem(.separator())
-        // The trowel marks the one action that puts the app back on the menu bar — the
-        // same mark the main window uses for state, so "restore" looks like "restore"
-        // wherever it appears.
+        // The trowel marks the one action that puts the app back on the menu bar, and it means
+        // the same thing here as it does on a row of the main window: this is what digs the
+        // icon back out. There the daisy carries the state and the trowel appears under the
+        // pointer; here there is no state to carry, so the trowel is simply the mark.
         let reveal = contextItem(L("bar.menu.reveal"), #selector(revealInMenuBar(_:)), app: app)
         reveal.image = AppIcons.trowel()
         menu.addItem(reveal)

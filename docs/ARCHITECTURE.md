@@ -14,10 +14,13 @@ Sources/
 │   ├── KeeperWindowController.swift  main window: the app list and controls
 │   ├── FloatingBarController.swift   the bar of hidden icons
 │   ├── AppRowView.swift           one row in the list
+│   ├── StateDaisyButton.swift     the state mark at the end of a row: daisy, or trowel under the pointer
+│   ├── MenuBarIconStyle.swift     capsule or daisy, and how the absent preference resolves
 │   └── AppIcons.swift             icon lookup with SF Symbol fallbacks
 ├── Core/                          behaviour, no UI
 │   ├── FoldController.swift       hidden set, whitelist, persistence, auto-collapse
 │   ├── MenuBarVisibility.swift    bridge to the private visibility API
+│   ├── StatusItemOpener.swift     click a foreign status item: transient reveal, then a real click
 │   ├── MenuBarScanner.swift       "which app owns which icon" + aggregation
 │   ├── MenuBarAgentInventory.swift   macOS 27 path: AX tree of MenuBarAgent
 │   ├── AccessibilityInventory.swift  macOS ≤ 26 path: per-app AXExtrasMenuBar

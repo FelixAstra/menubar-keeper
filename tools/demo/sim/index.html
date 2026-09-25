@@ -302,6 +302,21 @@
   }
   .row .meta.dim { color: #aeaeb2; }
 
+  /* The state mark between the word and the checkbox: the daisy that says what
+     the row is doing, swapped for the trowel while the pointer is on a folded
+     row. Sized to the app's 18 pt control in a 20 pt hit area, so it lines up
+     with the checkbox the way it does in the real window. */
+  .row .mark {
+    width: 20px; height: 20px;
+    border-radius: 5px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .row .mark.on { background: rgba(0, 0, 0, 0.10); }
+  .row .mark img { width: 15px; height: 15px; display: block; }
+
   .cbx {
     width: 14px; height: 14px;
     border-radius: 4px;
@@ -606,6 +621,11 @@ const T = {
   winOpen:     [2300, 2800],
   toRow1:      [2800, 3400],
   ticks:       [[3400, 3800], [3800, 4200], [4200, 4600], [4600, 5000], [5000, 5400], [5400, 5800]],
+  /* The pointer rests on the last mark it folded before it moves on to the close button. The
+     swap to the trowel happens only under the pointer, and the pointer has to be most of the
+     way to the next row by the time that row is ticked — so without a beat here the one thing
+     the mark *does* would never be on screen for longer than a couple of frames. */
+  markDwell:   [5400, 5800],
   toClose:     [5800, 6400],
   clickClose:  [6400, 6700],
   winClose:    [6700, 7080],
@@ -687,7 +707,8 @@ const rowEls = APPS.map((a, i) => {
     <div class="flash"></div>
     <div class="app-ico" style="background:${a.color}">${svgGlyph(a.glyph)}</div>
     <div class="texts"><div class="name">${a.name}</div><div class="sub">${a.bundle}</div></div>
-    <div class="meta">1 icon</div>
+    <div class="meta">shown</div>
+    <div class="mark"><img src="daisy-visible.png" alt=""></div>
     <div class="cbx"><div class="tick">${svgGlyph('check', '0 0 12 10')}</div></div>`;
   $('list').appendChild(el);
   return el;
@@ -698,7 +719,8 @@ selfRow.className = 'row';
 selfRow.innerHTML = `
   <div class="app-ico" style="background:#1d1d1f">${svgGlyph('cam')}</div>
   <div class="texts"><div class="name">${SELF.name}</div><div class="sub">${SELF.subtitle}</div></div>
-  <div class="meta">1 icon</div>
+  <div class="meta">shown</div>
+  <div class="mark"><img src="daisy-visible.png" alt=""></div>
   <div class="cbx locked"></div>`;
 $('list').appendChild(selfRow);
 
@@ -779,6 +801,7 @@ const geo = {
   dockKeeper: boxOf($('dock-keeper')),
   pill: boxOf($('pill')),
   rows: rowEls.map(boxOf),
+  marks: rowEls.map((el) => boxOf(el.querySelector('.mark'))),
   closeBtn: boxOf($('light-close')),
 };
 /* the floating bar hangs from the menu bar icon */
@@ -825,6 +848,10 @@ const menuOriginFor = (anchor) => ({
    ==================================================================== */
 
 const cursorEl = $('cursor');
+/** Where the pointer is this frame, in page coordinates. Resolved before the window is
+ *  drawn, because the row marks light up under it — the same order the real app has, where
+ *  the hover is what swaps the daisy for the trowel. */
+let pointer = { x: -1, y: -1 };
 const captionEl = $('caption');
 const screenEl = $('screen');
 const windowEl = $('window');
@@ -874,7 +901,15 @@ function cursorPath(barButtons) {
     { t: T.hoverDock[1], x: geo.dockKeeper.cx, y: geo.dockKeeper.cy },
     { t: T.clickDock[1], x: geo.dockKeeper.cx, y: geo.dockKeeper.cy },
   ];
-  geo.rows.forEach((r, i) => stops.push({ t: T.ticks[i][0] - lead, x: r.cx, y: r.cy }));
+  /* The pointer aims at each row's state mark rather than at the middle of the row. The mark
+     is what answers the pointer — the swap to the trowel only happens under it — and it sits
+     about 300 pt to the right of the row centre, so aiming there would never show it. */
+  geo.marks.forEach((m, i) => stops.push({ t: T.ticks[i][0] - lead, x: m.cx, y: m.cy }));
+  /* …and then stays on the last of them, so the trowel is legible before the window closes. */
+  if (geo.marks.length) {
+    const last = geo.marks[geo.marks.length - 1];
+    stops.push({ t: T.markDwell[1], x: last.cx, y: last.cy });
+  }
   stops.push({ t: T.clickClose[0] - lead, x: geo.closeBtn.cx + 2, y: geo.closeBtn.cy });
   stops.push({ t: T.clickPill[0] - lead, x: pillSpot.x, y: pillSpot.y });
   stops.push({ t: T.rightClick[0] - lead, x: menuAnchor.cx, y: menuAnchor.cy });
@@ -963,8 +998,22 @@ function renderWindow(t, sel) {
       ? 'inset 0 0 0 1px rgba(0,0,0,.05)'
       : 'inset 0 0 0 1px rgba(0,0,0,.22), 0 1px 1px rgba(0,0,0,.05)';
     tick.style.opacity = on ? '1' : '0';
-    meta.textContent = on ? 'hidden' : '1 icon';
+    /* The word answers "is this app folded away?" in both states. It used to give
+       the icon count while the app was on the bar and a word once it was hidden,
+       so one column answered two questions and the states did not match. */
+    meta.textContent = on ? 'hidden' : 'shown';
     meta.classList.toggle('dim', on);
+
+    /* The state mark, and the swap under the pointer. Only a folded row shows the
+       trowel — the same asymmetry the app has, where a row on the menu bar has no
+       garden mark for "put it away" and the pointer adds only the highlight. */
+    const mark = row.querySelector('.mark');
+    const markBox = boxOf(mark);
+    const hovering = pointer.x >= markBox.x && pointer.x <= markBox.x + markBox.w
+      && pointer.y >= markBox.y && pointer.y <= markBox.y + markBox.h;
+    mark.classList.toggle('on', hovering);
+    mark.querySelector('img').src = (on && hovering) ? 'trowel.png'
+      : on ? 'daisy-hidden.png' : 'daisy-visible.png';
 
     const flash = sel.clickedRow === i ? pulse(t, T.ticks[i][0], 320) : 0;
     row.querySelector('.flash').style.opacity = String(flash < 1 ? lerp(0.85, 0, easeOut(flash)) : 0);
@@ -1083,6 +1132,7 @@ function renderFrame(t) {
 
   /* --- pointer --- */
   const spot = alongPath(t, cursorPath(barButtons));
+  pointer = spot;
   cursorEl.dataset.x = String(spot.x);
   cursorEl.dataset.y = String(spot.y);
   cursorEl.style.transform = `translate(${(spot.x - 1).toFixed(2)}px, ${(spot.y - 1).toFixed(2)}px)`;

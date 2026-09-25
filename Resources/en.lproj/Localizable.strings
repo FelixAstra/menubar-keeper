@@ -103,9 +103,10 @@
 
 /* MARK: - App list row */
 
-"row.meta.folded" = "hidden";
-"row.meta.one" = "1 icon";
-"row.meta.many" = "%d icons";
+"row.state.folded" = "hidden";
+"row.state.unfolded" = "shown";
+"row.state.restore.tooltip" = "Show — put this app's icon back on the menu bar";
+"row.state.fold.tooltip" = "Hide — take this app's icon off the menu bar";
 "row.checkbox.tooltip" = "Select to move this app's menu bar icon into the hidden area";
 "row.tooltip" = "Click anywhere on the row to select or deselect";
 "row.tooltip.locked" = "System item or MenuBarKeeper itself — never hidden";

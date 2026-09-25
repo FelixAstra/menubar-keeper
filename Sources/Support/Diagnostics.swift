@@ -59,6 +59,9 @@ final class Diagnostics {
         schedule(after: 1.8, when: "iconstylecheck") { [weak self] in
             self?.runIconStyleCheck()
         }
+        schedule(after: 1.8, when: "rowstatecheck") { [weak self] in
+            self?.runRowStateCheck()
+        }
         schedule(after: 1.4, when: "windowshot") { [weak self] in
             self?.runWindowShot()
         }
@@ -252,6 +255,138 @@ final class Diagnostics {
                         + "picker.button=\(self.describe(picker.image)) "
                         + "statusItem=\(self.describe(self.delegate.statusItemImage))")
         }
+    }
+
+    // MARK: - Row state control
+
+    /// Drives the state daisy at the end of a list row: what it shows at rest, what it shows
+    /// under the pointer, and whether clicking it really moves the app.
+    ///
+    /// The hover step cannot be synthesised the way a click can — there is no event to post that
+    /// AppKit will deliver as `mouseEntered` — so the probe puts the control into the state the
+    /// tracking area would and reads what it then draws. That is why `isHovering` is settable
+    /// rather than private.
+    ///
+    /// The click goes through the button's own action, the way the icon-style probe fires a menu
+    /// item's action: calling `FoldController` directly would pass whether or not the control is
+    /// wired to anything.
+    ///
+    /// Two clicks leave the app where it started, but that is not enough on its own. Un-hiding
+    /// is *recorded* (`releasedBundles`: the user asked for this one back), so the selection is
+    /// captured up front and put back with `setSelection`, which restores what it found instead
+    /// of stacking another decision on top of it.
+    private func runRowStateCheck() {
+        guard claim("rowstatecheck") else { return }
+        delegate.showMainWindow()
+
+        after(1.5) { [weak self] in
+            guard let self else { return }
+            guard let content = NSApp.windows
+                .first(where: { $0.isVisible && $0.title == L("window.title") })?.contentView else {
+                self.report("[rowstate] no main window")
+                return
+            }
+
+            let buttons = self.descendants(of: content, as: StateDaisyButton.self)
+            guard !buttons.isEmpty else {
+                self.report("[rowstate] no state buttons — is the app list empty?")
+                return
+            }
+            self.report("[rowstate] buttons=\(buttons.count)")
+
+            for (index, button) in buttons.enumerated() {
+                let rest = self.describe(button)
+                button.isHovering = true
+                let hover = self.describe(button)
+                button.isHovering = false
+                self.report("[rowstate] #\(index) interactive=\(button.isInteractive) "
+                            + "rest=\(rest) hover=\(hover)")
+            }
+
+            // A picture of the hover look. The swap is the part no number settles: every mark is
+            // an 18 pt full-colour image, so only the name written above says which one it is.
+            if let shown = buttons.first(where: { $0.isInteractive && $0.isFolded }) {
+                shown.isHovering = true
+                self.writeWindowShot(to: "/tmp/menubarkeeper-row-hover.png")
+                shown.isHovering = false
+                self.report("[rowstate] hover shot written while showing \(shown.mark.rawValue)")
+            } else {
+                self.report("[rowstate] no folded row to photograph")
+            }
+
+            guard let button = buttons.first(where: { $0.isInteractive }),
+                  let row = self.firstAncestor(of: button, as: AppRowView.self) else {
+                self.report("[rowstate] no foldable row to click")
+                return
+            }
+
+            let bundle = row.entry.bundleIdentifier
+            let before = FoldController.shared.selection
+            self.report("[rowstate] clicking \(bundle) "
+                        + "hidden=\(FoldController.shared.isHidden(bundle)) "
+                        + "selection[\(self.describe(before))]")
+
+            func click(_ label: String) {
+                guard let action = button.action else {
+                    self.report("[rowstate] \(label) the state button has no action wired to it")
+                    return
+                }
+                _ = NSApp.sendAction(action, to: button.target, from: button)
+                self.report("[rowstate] \(label) rowMarked=\(row.isMarked) "
+                            + "mark=\(button.mark.rawValue) "
+                            + "hidden=\(FoldController.shared.isHidden(bundle)) "
+                            + "texts=[\(self.texts(of: row))]")
+            }
+            click("click-1")
+            click("click-2")
+
+            FoldController.shared.setSelection(before)
+            self.report("[rowstate] restored "
+                        + "selection[\(self.describe(FoldController.shared.selection))] "
+                        + "hidden=\(FoldController.shared.isHidden(bundle)) "
+                        + "texts=[\(self.texts(of: row))]")
+
+            // Then the list as it stands a moment later, row by row, because the interesting
+            // failure is a row that says one thing while the selection says another.
+            self.after(1.4) {
+                let fold = FoldController.shared
+                var mismatched: [String] = []
+                for row in self.descendants(of: content, as: AppRowView.self) {
+                    guard let button = self.firstDescendant(of: row, as: StateDaisyButton.self) else {
+                        self.report("[rowstate] \(self.entry(row)) has no state button")
+                        continue
+                    }
+                    guard row.entry.canFold else {
+                        // A locked row is not a different kind of row — it has the same mark in
+                        // the same place, just with nothing to do — so what is checked about it
+                        // is that it has no pointer response at all.
+                        self.report("[rowstate] \(self.entry(row)) locked "
+                                    + "mark=\(button.mark.rawValue) "
+                                    + "interactive=\(button.isInteractive) "
+                                    + "tooltip=\(button.toolTip ?? "nil")")
+                        continue
+                    }
+                    let wants = fold.isHidden(row.entry.bundleIdentifier)
+                    if wants != button.isFolded { mismatched.append(row.entry.bundleIdentifier) }
+                    self.report("[rowstate] \(self.entry(row)) mark=\(button.mark.rawValue) "
+                                + "rowSaysFolded=\(button.isFolded) selectionSaysFolded=\(wants) "
+                                + "texts=[\(self.texts(of: row))]")
+                }
+                self.report("[rowstate] mismatched=\(mismatched.isEmpty ? "none" : mismatched.joined(separator: ","))")
+            }
+        }
+    }
+
+    private func entry(_ row: AppRowView) -> String {
+        row.entry.bundleIdentifier.isEmpty ? row.entry.displayName : row.entry.bundleIdentifier
+    }
+
+    private func describe(_ button: StateDaisyButton) -> String {
+        "\(button.mark.rawValue) \(describe(button.image)) tooltip=\(button.toolTip ?? "nil")"
+    }
+
+    private func describe(_ selection: FoldController.Selection) -> String {
+        "hidden=\(selection.hidden.count) released=\(selection.released.count)"
     }
 
     // MARK: - Hiding verification
@@ -1539,6 +1674,31 @@ final class Diagnostics {
             if let found = firstDescendant(of: sub, as: type) { return found }
         }
         return nil
+    }
+
+    /// Every view of a type below this one, in the order they were added — the list rows, or
+    /// the state buttons they contain, rather than just the first of them.
+    private func descendants<T: NSView>(of view: NSView, as type: T.Type) -> [T] {
+        var found: [T] = []
+        if let match = view as? T { found.append(match) }
+        for sub in view.subviews { found.append(contentsOf: descendants(of: sub, as: type)) }
+        return found
+    }
+
+    private func firstAncestor<T: NSView>(of view: NSView, as type: T.Type) -> T? {
+        var current = view.superview
+        while let view = current {
+            if let match = view as? T { return match }
+            current = view.superview
+        }
+        return nil
+    }
+
+    /// Every label under a view, in drawing order. Enough to see what a row is saying without
+    /// the probe having to know which field is which, which is the point: a row is a picture
+    /// plus some words, and the words are the part a check can read.
+    private func texts(of view: NSView) -> String {
+        descendants(of: view, as: NSTextField.self).map(\.stringValue).joined(separator: " | ")
     }
 
     // MARK: - Synthetic input

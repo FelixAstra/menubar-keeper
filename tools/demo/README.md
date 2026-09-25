@@ -18,7 +18,7 @@ below for what that means in practice.
 cd tools/demo
 npm install                 # playwright-core only; it drives the Chrome already on the Mac
 
-node render.mjs frames --fps 20 --duration 13200 --scale 2   # 265 frames, about 3 minutes
+node render.mjs frames --fps 20 --duration 13400 --scale 2   # 269 frames, about 3 minutes
 ./build-assets.sh frames ../../docs/images                   # demo.mp4 + demo.gif
 ./make-banner.sh  frames ../../docs/images/menu-bar.png      # the still strip
 ```
@@ -82,12 +82,18 @@ Two details worth knowing before changing anything:
 | `wallpaper.jpg` | Generated for this demo — no third-party imagery |
 | `pill.png` | Copy of `Resources/MenuBarTemplate@2x.png`, the shipping menu bar icon |
 | `appicon.png` | Extracted from `Resources/MenuBarKeeper.icns` |
+| `daisy-hidden.png`, `daisy-visible.png`, `trowel.png` | Copies of the matching `Resources/*@2x.png` — the row's state mark and the swap under the pointer |
 
 The demo shows the mark the app ships with, which is why the menu bar here wears the capsule:
 the garden daisies are an optional menu bar style (`MenuBarIconStyle`, picked in the window)
-and a walkthrough of a default install must not show them. Rendering a *daisy* walkthrough
-means copying `Resources/DaisyHidden@2x.png` in as another `<img>` and swapping `src` — the
-same one-line change 1.3.0 made in the other direction.
+and a walkthrough of a default install must not show them. The **row** daisies are not optional
+and are not the same thing — they are the state mark every list row carries, so they appear
+here as they do in the app.
+
+The row marks are driven by the pointer, exactly as the control is: a folded row swaps its
+daisy for the trowel while the pointer is on it. That is why the walkthrough's stops aim at
+`geo.marks` rather than at the middle of each row — the mark sits about 300 pt to the right of
+the row centre, so a pointer aimed at the centre would never show the swap.
 
 `index.html` loads them as ordinary relative files, so opening it directly in a browser
 works too — `file://…/sim/index.html?t=9700` is a quick way to look at one moment.

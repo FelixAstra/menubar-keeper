@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif?v=6" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=7" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
@@ -35,7 +35,9 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 Hidden apps keep running. Only the icon goes away — and the daisy beside each app in the list
 says which state it is in at a glance: **coloured and smiling** while it is folded away, **grey
-and asleep** while it is back on the menu bar.
+and asleep** while it is back on the menu bar. Point at the daisy and it turns into the trowel,
+which is what digs the icon back out; click it and the app changes state, exactly as ticking its
+row does.
 
 ### What happens on launch
 
@@ -53,6 +55,7 @@ The scan is skipped if the app is not running from `/Applications` — see below
 | Click the menu bar icon | Show / hide the floating bar of hidden icons |
 | Right-click it (or ⌥-click) | Menu: reveal the hidden icons, show every icon, a 10-second peek, permissions, help, quit |
 | Click a row in the window | Hide / unhide that app — an app you unhide is not auto-hidden again |
+| Click the daisy at the end of a row | The same thing, from the mark that shows the state. Hovering a folded row turns it into the trowel |
 | Click *System items (N)* in the window | See the items macOS manages, which can never be hidden |
 | Click the picker in the window's title row | Menu bar mark: the brand capsule, or a daisy that follows the state |
 | Click an icon in the floating bar | That app's own menu — the icon briefly returns to the menu bar to open it |
