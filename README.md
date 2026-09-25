@@ -73,10 +73,13 @@ cd menubar-keeper
 make            # universal binary (arm64 + x86_64) -> build/
 make install    # build, copy to /Applications, launch
 make dmg        # build and package MenuBarKeeper-<version>.dmg
+make icon       # regenerate the app icon from Supporting/AppIconSource.png
 make help       # all targets
 ```
 
-Requires the Xcode command line tools. No Xcode project, no third-party dependencies.
+Requires the Xcode command line tools. No Xcode project, no third-party dependencies —
+including `make icon`, which draws the icon's rounded-square mask with Core Graphics rather
+than an image library you would have to install first.
 
 > The images in this README are rendered from [`tools/demo`](tools/demo) instead of being
 > screen-recorded, so they can be regenerated rather than re-shot.

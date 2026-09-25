@@ -181,9 +181,12 @@ thread is parked inside the menu's event tracking.
 
 - **The app icon must be supplied already shaped.** macOS does not apply the rounded-square
   mask to third-party bundles — Xcode's asset catalog does that at build time, and this
-  project has no asset catalog. `Scripts/make-app-icon.py` builds a squircle mask
-  (n = 5, 4× supersampled) and re-exports the iconset, since the source artwork was a
-  full-bleed square.
+  project has no asset catalog. `Scripts/make-app-icon.swift` clips the artwork to a
+  squircle path (superellipse, n = 5) on the 824×824 content grid and re-exports the
+  iconset, since the source artwork is a full-bleed opaque square. It is Swift rather than
+  Python so that `make icon` works on a fresh clone: the earlier Pillow version needed a
+  `pip install` that nothing declared, and read its input from a gitignored folder.
+  `Supporting/AppIconSource.png` is the tracked source.
 - **The menu bar icon is a template image** (`isTemplate = true`): the opaque pixels are
   recoloured by the system, so a single black-and-transparent artwork is correct in both
   light and dark menu bars. Do not communicate state through `alphaValue` on a template

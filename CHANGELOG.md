@@ -4,28 +4,7 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Fixed
-
-- **Two footer controls overlapped in English.** *Refresh* and the language picker were drawn
-  on top of each other, by 29 pt on a 620 pt window. The row was anchored from both edges —
-  the checkbox and the picker from the left, the buttons from the right — with nothing
-  linking the two groups, and nothing in Auto Layout objects to two views occupying the same
-  space. English is where it showed: *Detect and hide on launch*, the picker and three
-  buttons need about 617 pt of the 588 pt available. The footer is now two rows, preferences
-  above actions, and each row carries a request that the groups cannot meet
-  (`trailing ≤ leading`), so a longer translation has to shorten a label instead of
-  overlapping one. The two labels that can afford it — the checkbox and *Refresh* — drop
-  their compression resistance and truncate, and both already have tooltips.
-- **The app list showed rows that could not be used.** System items (input menu, Siri,
-  SystemUIServer) and MenuBarKeeper itself were listed with everything else, each with a
-  disabled checkbox, so the list mixed things you can hide with things that are fixed and
-  reported a count that included both. They now live in a *System items (N) — never hidden*
-  section behind a disclosure at the end of the list, opening it scrolls it into view, and
-  those rows carry no checkbox at all — a disabled one still reads as "click here to hide
-  this", which is the one thing the row cannot do. The count column stays aligned across
-  both sections.
+## [1.1.0] - 2026-09-25
 
 ### Added
 
@@ -37,41 +16,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Releasing an app is remembered. An app sent back to the menu bar (from the window, or from
   the floating bar's *Restore to menu bar*) is recorded as released and subtracted from every
   later scan, so it is never quietly hidden again.
-
-### Fixed
-
-- **The app list rendered as a single line.** The scroll view's document view and the stack
-  holding the rows never had `translatesAutoresizingMaskIntoConstraints` switched off, so
-  every constraint naming them was silently ignored: both stayed 0×0 and all eleven rows
-  were laid out on the same coordinates, drawing on top of one another with their titles
-  squeezed to nothing. Nothing was logged — a view with that flag on has handed its frame
-  back to its superview, so there is no frame for the engine to report a conflict about.
-- Rows in the list did not span the window, so the checkbox sat immediately after the app
-  name (and, once the rows were real, hard against the right edge in a ragged column).
-  `NSStackView.alignment = .width` — the value that reads as "fill the width" — is not
-  stored on this SDK, so each row is now pinned to the stack's width explicitly.
-- Every control inside a row bunched against its leading edge, leaving the slack as empty
-  space. `NSStackView` still defaults to `.gravityAreas`, which packs without stretching;
-  the row now uses `.fill`, which hands the slack to the text stack.
-- The window grew wider than its design size as soon as the list reported real widths. The
-  content view's size was pinned as a floor, and AppKit sizes a window to its content view's
-  fitting size — a floor can only raise that, never cap it, so the mechanism label's full
-  sentence stretched the window to 651 pt. The size is now pinned exactly.
-- The window could greet you with *"It does not look applied — N selected apps are still on
-  the menu bar. Check that Accessibility permission is enabled"* when nothing was wrong. The
-  system applies a hide a second or two after the submission, so the scan taken right after
-  it still saw the icons; the window now rechecks once before saying so.
 - Automatic detection is skipped when the app is not running from `/Applications`. The system
   only protects a status item belonging to an app in a standard location, so hiding everything
   automatically from a checkout would hide the app's own icon too and leave no way back — a
   risk that did not exist while folding was strictly manual.
-- The self-test for hiding left the app it selected behind in the user's selection. It put back
-  only the apps that had been hidden, so the target of the test stayed selected afterwards; it
-  now captures and restores the whole selection.
-- The walkthrough animation clicked the desktop instead of the Dock icon. The mock dock
-  centred itself with `translateX(-50%)`, which the cursor targeting cannot see, so the
-  opening click landed 255 pt to the right of the icon it was aiming at. The dock is now
-  centred by position, like every other measured element.
 
 ### Changed
 
@@ -93,6 +41,63 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   ones the committed scripts produce.
 - The window's hint and the *Detect and hide on launch* tooltip now describe the scan and say
   that releasing an app is permanent, in both languages.
+- **`make icon` runs on a fresh clone.** It used a Python script that needed Pillow — a
+  `pip install` nothing in the repo declared — and read its source artwork out of a
+  gitignored folder, so a clone could not regenerate the icon at all: the documented target
+  failed twice over. It is now `Scripts/make-app-icon.swift`, drawing the squircle clip with
+  Core Graphics and calling `iconutil`, both of which are already required to build the app,
+  and the artwork is committed as `Supporting/AppIconSource.png`. The `.icns` in the repo is
+  the one the committed script produces (same 824×824 content grid, corners transparent,
+  99.96 % mask agreement on the 1024 px layer).
+
+### Fixed
+
+- **Two footer controls overlapped in English.** *Refresh* and the language picker were drawn
+  on top of each other, by 29 pt on a 620 pt window. The row was anchored from both edges —
+  the checkbox and the picker from the left, the buttons from the right — with nothing
+  linking the two groups, and nothing in Auto Layout objects to two views occupying the same
+  space. English is where it showed: *Detect and hide on launch*, the picker and three
+  buttons need about 617 pt of the 588 pt available. The footer is now two rows, preferences
+  above actions, and each row carries a request that the groups cannot meet
+  (`trailing ≤ leading`), so a longer translation has to shorten a label instead of
+  overlapping one. The two labels that can afford it — the checkbox and *Refresh* — drop
+  their compression resistance and truncate, and both already have tooltips.
+- **The app list showed rows that could not be used.** System items (input menu, Siri,
+  SystemUIServer) and MenuBarKeeper itself were listed with everything else, each with a
+  disabled checkbox, so the list mixed things you can hide with things that are fixed and
+  reported a count that included both. They now live in a *System items (N) — never hidden*
+  section behind a disclosure at the end of the list, opening it scrolls it into view, and
+  those rows carry no checkbox at all — a disabled one still reads as "click here to hide
+  this", which is the one thing the row cannot do. The count column stays aligned across
+  both sections.
+- **The app list rendered as a single line.** The scroll view's document view and the stack
+  holding the rows never had `translatesAutoresizingMaskIntoConstraints` switched off, so
+  every constraint naming them was silently ignored: both stayed 0×0 and all eleven rows
+  were laid out on the same coordinates, drawing on top of one another with their titles
+  squeezed to nothing. Nothing was logged — a view with that flag on has handed its frame
+  back to its superview, so there is no frame for the engine to report a conflict about.
+- Rows in the list did not span the window, so the checkbox sat immediately after the app
+  name (and, once the rows were real, hard against the right edge in a ragged column).
+  `NSStackView.alignment = .width` — the value that reads as "fill the width" — is not
+  stored on this SDK, so each row is now pinned to the stack's width explicitly.
+- Every control inside a row bunched against its leading edge, leaving the slack as empty
+  space. `NSStackView` still defaults to `.gravityAreas`, which packs without stretching;
+  the row now uses `.fill`, which hands the slack to the text stack.
+- The window grew wider than its design size as soon as the list reported real widths. The
+  content view's size was pinned as a floor, and AppKit sizes a window to its content view's
+  fitting size — a floor can only raise that, never cap it, so the mechanism label's full
+  sentence stretched the window to 651 pt. The size is now pinned exactly.
+- The window could greet you with *"It does not look applied — N selected apps are still on
+  the menu bar. Check that Accessibility permission is enabled"* when nothing was wrong. The
+  system applies a hide a second or two after the submission, so the scan taken right after
+  it still saw the icons; the window now rechecks once before saying so.
+- The self-test for hiding left the app it selected behind in the user's selection. It put back
+  only the apps that had been hidden, so the target of the test stayed selected afterwards; it
+  now captures and restores the whole selection.
+- The walkthrough animation clicked the desktop instead of the Dock icon. The mock dock
+  centred itself with `translateX(-50%)`, which the cursor targeting cannot see, so the
+  opening click landed 255 pt to the right of the icon it was aiming at. The dock is now
+  centred by position, like every other measured element.
 
 ## [1.0.0] - 2026-09-24
 
@@ -113,4 +118,5 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.1.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.1.0
 [1.0.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.0.0

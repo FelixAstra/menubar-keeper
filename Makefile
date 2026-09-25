@@ -27,7 +27,7 @@ dmg: ## Build and package a distributable disk image
 	@./Scripts/package-dmg.sh --build
 
 icon: ## Regenerate the .icns from the source artwork
-	@python3 Scripts/make-app-icon.py
+	@swift Scripts/make-app-icon.swift
 
 cert: ## Create the local self-signed signing certificate (once)
 	@./Scripts/make-signing-cert.sh
