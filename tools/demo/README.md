@@ -83,5 +83,11 @@ Two details worth knowing before changing anything:
 | `pill.png` | Copy of `Resources/MenuBarTemplate@2x.png`, the shipping menu bar icon |
 | `appicon.png` | Extracted from `Resources/MenuBarKeeper.icns` |
 
+The demo shows the mark the app ships with, which is why the menu bar here wears the capsule:
+the garden daisies are an optional menu bar style (`MenuBarIconStyle`, picked in the window)
+and a walkthrough of a default install must not show them. Rendering a *daisy* walkthrough
+means copying `Resources/DaisyHidden@2x.png` in as another `<img>` and swapping `src` — the
+same one-line change 1.3.0 made in the other direction.
+
 `index.html` loads them as ordinary relative files, so opening it directly in a browser
 works too — `file://…/sim/index.html?t=9700` is a quick way to look at one moment.

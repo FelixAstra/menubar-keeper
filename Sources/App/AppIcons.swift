@@ -3,22 +3,25 @@ import AppKit
 /// Icon assets. The files live in `Resources/` and are copied into the bundle's
 /// `Contents/Resources/` by `Scripts/build.sh`.
 ///
-/// ## Why the menu bar icon is no longer a template image
+/// ## The menu bar mark is a choice, and the two options are not interchangeable
 ///
-/// `MenuBarTemplate.png` was a pure-black capsule marked as a *template*, so macOS
-/// recoloured it to match the menu bar. The state icons are daisies now, and the
-/// whole point of the design is the colour: a **coloured, smiling** daisy when icons
-/// are folded away, a **grey, sleeping** one when everything is on the bar. That
-/// distinction cannot survive template recolouring — both would become the same
-/// monochrome shape — so the daisies load as ordinary full-colour images. They were
-/// drawn for a menu bar (white petals read on dark; the grey stays legible on light),
-/// and the state they express matters more than adapting to the theme.
+/// `MenuBarTemplate.png` is a pure-black capsule marked as a *template*, so macOS
+/// recolours it to match the menu bar. The daisies are the opposite: the whole point of
+/// that design is the colour — a **coloured, smiling** daisy when icons are folded away,
+/// a **grey, sleeping** one when everything is on the bar. That distinction cannot survive
+/// template recolouring (both would become the same monochrome shape), so the daisies load
+/// as ordinary full-colour images. They were drawn for a menu bar: white petals read on
+/// dark, and the grey stays legible on light.
+///
+/// Which one is drawn is the user's call — see `MenuBarIconStyle`. The capsule is the
+/// default, so an install that never touches the control looks exactly as it did before
+/// the daisies existed.
 ///
 /// ## Lookup order
 ///
-/// The daisies are tried first; the template capsule remains as the fallback when
-/// they are missing. Nothing in the app depends on artwork being present in order
-/// to work.
+/// `menuBar(collapsed:style:)` resolves the chosen style, and each branch falls back to
+/// the *other* artwork when its own is missing. Nothing in the app depends on artwork
+/// being present in order to work.
 enum AppIcons {
 
     /// Logical size of the menu bar icon in points, matching the 44×18 px 1x asset.
@@ -44,19 +47,33 @@ enum AppIcons {
         return image
     }
 
-    /// Menu bar icon for the given state.
+    /// Menu bar icon for the given state, in the style the user picked.
     ///
-    /// Collapsed — the user's icons are folded away — shows the coloured smiling
-    /// daisy (`DaisyHidden`: the daisy standing for hidden apps); expanded shows the
-    /// grey sleeping one (`DaisyVisible`). The template capsule is the fallback so a
-    /// missing asset degrades to the old look instead of nothing.
-    static func menuBar(collapsed: Bool) -> NSImage? {
-        daisy(folded: collapsed) ?? {
-            let variants = collapsed
-                ? ["MenuBarTemplateCollapsed", "MenuBarTemplate"]
-                : ["MenuBarTemplateExpanded", "MenuBarTemplate"]
-            return variants.lazy.compactMap { loadTemplate(named: $0) }.first
-        }()
+    /// `style` decides *which* mark is drawn; `collapsed` only changes the daisy, the one
+    /// of the two that reports the fold state. The capsule ignores it — it is an identity
+    /// mark, not a state indicator.
+    ///
+    /// Each branch falls back to the other mark first, so a missing asset degrades to a
+    /// usable icon rather than nothing; `AppDelegate` has an SF Symbol behind that.
+    static func menuBar(collapsed: Bool, style: MenuBarIconStyle = .current) -> NSImage? {
+        switch style {
+        case .capsule:
+            return capsule(collapsed: collapsed) ?? daisy(folded: collapsed)
+        case .daisy:
+            return daisy(folded: collapsed) ?? capsule(collapsed: collapsed)
+        }
+    }
+
+    /// The brand capsule, as a template image so macOS tints it for the menu bar.
+    ///
+    /// The `MenuBarTemplateCollapsed` / `Expanded` variants are still probed first: they
+    /// were never drawn, and the intent is that dropping either one in is all it takes to
+    /// give the capsule its own two states.
+    static func capsule(collapsed: Bool) -> NSImage? {
+        let variants = collapsed
+            ? ["MenuBarTemplateCollapsed", "MenuBarTemplate"]
+            : ["MenuBarTemplateExpanded", "MenuBarTemplate"]
+        return variants.lazy.compactMap { loadTemplate(named: $0) }.first
     }
 
     /// The state daisy: coloured and smiling when the app is folded away, grey and

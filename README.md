@@ -4,7 +4,7 @@
 
 [**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文
 
-<img src="docs/images/menu-bar.png?v=4" alt="A macOS menu bar with MenuBarKeeper's daisy icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
+<img src="docs/images/menu-bar.png?v=6" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
 
 ## Download
 
@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif?v=5" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the daisy and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=6" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
@@ -31,6 +31,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 | **Reach** | Click the menu bar icon and the hidden ones drop down right underneath it |
 | **Act** | Right-click a hidden icon to open, quit, or send the app back to the menu bar |
 | **Undo** | *Show all* restores everything; quitting the app always does too |
+| **Style** | The menu bar mark is yours: the brand capsule, or a daisy that changes with the state |
 
 Hidden apps keep running. Only the icon goes away.
 
@@ -51,6 +52,7 @@ The scan is skipped if the app is not running from `/Applications` — see below
 | Right-click it (or ⌥-click) | Menu: expand all, permissions, help, quit |
 | Click a row in the window | Hide / unhide that app — an app you unhide is not auto-hidden again |
 | Click *System items (N)* in the window | See the items macOS manages, which can never be hidden |
+| Click the picker in the window's title row | Menu bar mark: the brand capsule, or a daisy that follows the state |
 | Right-click an icon in the floating bar | Open, Preferences, Hide, Put back, Quit |
 | ⌥⌘M | Show / hide the floating bar |
 | ⌥⌘\\ | Collapse / expand the menu bar |

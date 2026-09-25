@@ -86,6 +86,12 @@
 "window.autoCollapse" = "Detect and hide on launch";
 "window.autoCollapse.tooltip" = "On by default. At startup MenuBarKeeper scans the menu bar and hides every app on it that can be hidden. An app you restore by hand stays out — the next scan will not hide it again.";
 
+/* The menu bar mark. The picker shows the picture, so these names appear in its menu and
+   in the tooltip; "Capsule" is the pill-shaped brand mark the app has always drawn. */
+"window.iconStyle.capsule" = "Capsule";
+"window.iconStyle.daisy" = "Daisy";
+"window.iconStyle.tooltip" = "Which mark the menu bar wears — now: %@.\nCapsule is the brand mark MenuBarKeeper has always drawn. The daisy follows the state: coloured and smiling while icons are hidden, grey and asleep while everything is on the bar.";
+
 "window.refresh" = "Refresh";
 "window.expandAll" = "Show all";
 "window.collapse" = "Hide";

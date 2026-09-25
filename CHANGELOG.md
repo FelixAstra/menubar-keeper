@@ -4,6 +4,34 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-09-25
+
+### Added
+
+- **The menu bar mark is a choice now**: the brand capsule, or the state daisy — coloured and
+  smiling while icons are folded away, grey and asleep while everything is on the bar. The
+  picker sits in the window's title row beside the language tab, shows the mark in effect, and
+  names both options in its menu. Switching redraws the menu bar immediately: nothing but one
+  image depends on it, so unlike the language tab it needs no relaunch.
+- An `iconstylecheck` probe drives that picker the way a click does — it finds the real
+  `NSPopUpButton` on the content view, fires the real `NSMenuItem` action, and then checks the
+  status item's *image*, since the stored preference alone would not prove the menu bar
+  redrew. It restores the value exactly as it found it, absent key included.
+
+### Changed
+
+- **A fresh install is back on the brand capsule.** 1.3.0 made the daisy unconditional, which
+  repainted the menu bar of every existing install on upgrade — and took the README's imagery
+  and the walkthrough with it, both of which are supposed to show the app as it ships. The
+  daisy is opt-in from here: the *absent* preference value resolves to the capsule, so an
+  install that never touches this control looks exactly as it did before the daisies existed.
+  Adding an option must not repaint anyone's menu bar behind their back.
+
+### Fixed
+
+- `selftest` reports the icon style it resolved (`iconStyle=… rawKey=…`), including the
+  absent-key case — the one that has to keep answering "capsule`.
+
 ## [1.3.0] - 2026-09-25
 
 ### Added
@@ -209,6 +237,7 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.4.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.4.0
 [1.3.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.3.0
 [1.2.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.2.0
 [1.1.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.1.0

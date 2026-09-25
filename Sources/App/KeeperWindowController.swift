@@ -26,8 +26,11 @@ final class KeeperWindowController: NSObject {
         static let brandSpacing: CGFloat = 10
         static let lineSpacing: CGFloat = 4
         static let buttonSpacing: CGFloat = 10
-        /// Gap between the state headline and the language tab that closes the title row.
-        static let languageTabGap: CGFloat = 12
+        /// Gap between the trailing controls of the title row — the icon-style picker and the
+        /// language tab — and the headline they sit beside. One value for the whole row: the
+        /// three of them read as a single group, and the small gap is what keeps the headline
+        /// from looking like it belongs to the picker.
+        static let iconStyleGap: CGFloat = 8
         static let controlsBottomInset: CGFloat = 14
         /// Leading inset of the section header's content, matching the list rows.
         static let rowInset: CGFloat = 12
@@ -58,6 +61,13 @@ final class KeeperWindowController: NSObject {
     private let refreshButton = NSButton(title: "", target: nil, action: nil)
     private let restoreButton = NSButton(title: "", target: nil, action: nil)
     private let collapseButton = NSButton(title: "", target: nil, action: nil)
+    /// Chooses which mark the menu bar wears — the brand capsule or the state daisy.
+    ///
+    /// A pull-down rather than a segmented control: the two options are pictures, and a
+    /// two-cell tab showing both at once would cost twice the width for a control nobody
+    /// touches twice. This one shows the mark that is in effect, and the alternatives are
+    /// one click away with their names spelled out.
+    private let iconStylePicker = NSPopUpButton(frame: .zero, pullsDown: false)
 
     /// The "never hidden" section: a rule, a disclosure button and the rows behind it.
     /// Built once and added to or removed from the list per scan.
@@ -220,6 +230,26 @@ final class KeeperWindowController: NSObject {
         // Named for the layout probe, which reports every control it finds on the content view.
         languageTabs.identifier = NSUserInterfaceItemIdentifier("languageTabs")
 
+        // The icon-style picker, parked immediately left of the language tab: both answer
+        // "how should this look", and neither fits in the footer, which has no spare width
+        // left in English. `small` for the same reason the tab is — the title row is sized
+        // by the 18 pt brand mark.
+        iconStylePicker.controlSize = .small
+        iconStylePicker.bezelStyle = .rounded
+        // The button shows the mark, not a word: the two options *are* the two pictures, so
+        // the artwork labels the control better than a translated noun would — and it keeps
+        // the picker narrow enough to share the row with the headline and the tab. The names
+        // are still spelled out inside the menu, where there is room for them.
+        iconStylePicker.imagePosition = .imageOnly
+        // Pinned rigid, like the tab beside it. Both must take their natural width, or the
+        // row's spare width goes to the control instead of to the headline — which is how
+        // the language tab once became a 264 pt blue bar.
+        iconStylePicker.setContentHuggingPriority(.required, for: .horizontal)
+        iconStylePicker.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // Named for the layout probe, which reports every control on the content view.
+        iconStylePicker.identifier = NSUserInterfaceItemIdentifier("iconStylePicker")
+        buildIconStyleMenu()
+
         refreshButton.bezelStyle = .rounded
         restoreButton.bezelStyle = .rounded
         restoreButton.toolTip = L("window.expandAll")
@@ -279,11 +309,54 @@ final class KeeperWindowController: NSObject {
                 accessibilityDescription: nil)
     }
 
+    /// Fills the picker's menu: one item per style, each showing the mark it selects.
+    ///
+    /// Built once, at construction. The titles are lookups, so they follow the language tab —
+    /// and since that restarts the app, they are rebuilt in the new language with everything
+    /// else. The action lives on the items rather than on the button, because "which of these
+    /// two do you want" is exactly what `representedObject` is for.
+    private func buildIconStyleMenu() {
+        let menu = NSMenu()
+        for style in MenuBarIconStyle.allCases {
+            let item = NSMenuItem(title: L(style.localizationKey),
+                                  action: #selector(iconStyleChanged(_:)),
+                                  keyEquivalent: "")
+            item.target = self
+            item.representedObject = style.rawValue
+            item.image = iconStyleThumbnail(style)
+            menu.addItem(item)
+        }
+        iconStylePicker.menu = menu
+    }
+
+    /// A menu-bar-proportioned thumbnail of a mark, for the picker's button and its menu.
+    ///
+    /// Both marks are drawn at the same *height* so the control keeps one width whichever
+    /// style is in effect. The capsule is 44×18 and the daisy is square, so letting each keep
+    /// its own scale would resize the button every time the user switched — and shift the
+    /// headline beside it, which is the one view that has no business moving.
+    ///
+    /// The daisy shown here is always the coloured one: this menu is about which *mark* the
+    /// menu bar wears, and the state that changes the colour is a separate matter — the
+    /// tooltip spells out the state, and so does the row list.
+    private func iconStyleThumbnail(_ style: MenuBarIconStyle) -> NSImage? {
+        let height: CGFloat = 14
+        switch style {
+        case .capsule:
+            guard let image = AppIcons.capsule(collapsed: false)?.copy() as? NSImage else { return nil }
+            let ratio = AppIcons.menuBarSize.width / AppIcons.menuBarSize.height
+            image.size = NSSize(width: (height * ratio).rounded(), height: height)
+            return image
+        case .daisy:
+            return AppIcons.daisy(folded: true, size: height)
+        }
+    }
+
     private func layoutViews() {
         guard let content = window.contentView else { return }
         let allViews: [NSView] = [
             brandIcon, stateLabel, mechanismLabel, summaryLabel, scrollView, hintLabel,
-            autoCollapseCheckbox, languageTabs, refreshButton, restoreButton,
+            autoCollapseCheckbox, iconStylePicker, languageTabs, refreshButton, restoreButton,
             collapseButton,
         ]
         for view in allViews {
@@ -301,15 +374,19 @@ final class KeeperWindowController: NSObject {
             stateLabel.centerYAnchor.constraint(equalTo: brandIcon.centerYAnchor),
             stateLabel.leadingAnchor.constraint(equalTo: brandIcon.trailingAnchor,
                                                 constant: Metrics.brandSpacing),
-            // The headline stops at the language tab instead of running to the window edge,
-            // because the title row now carries the tab in its trailing corner. It is the
-            // headline that gives way (see the compression resistance above).
-            stateLabel.trailingAnchor.constraint(equalTo: languageTabs.leadingAnchor,
-                                                 constant: -Metrics.languageTabGap),
+            // The headline stops at the icon-style picker instead of running to the window
+            // edge, because the title row's trailing corner now carries two controls. It is
+            // the headline that gives way (see the compression resistance above).
+            stateLabel.trailingAnchor.constraint(equalTo: iconStylePicker.leadingAnchor,
+                                                 constant: -Metrics.iconStyleGap),
 
-            // The tab closes the title row: same baseline as the brand mark, flush with the
-            // right-hand margin everything else lines up on. Putting it here rather than in
-            // the footer is what buys the footer back its single row.
+            // The picker leads the tab, and the tab closes the row: same baseline as the brand
+            // mark, flush with the right-hand margin everything else lines up on. Putting the
+            // tab here rather than in the footer is what buys the footer its single row.
+            iconStylePicker.centerYAnchor.constraint(equalTo: brandIcon.centerYAnchor),
+            iconStylePicker.trailingAnchor.constraint(equalTo: languageTabs.leadingAnchor,
+                                                      constant: -Metrics.iconStyleGap),
+
             languageTabs.centerYAnchor.constraint(equalTo: brandIcon.centerYAnchor),
             languageTabs.trailingAnchor.constraint(equalTo: content.trailingAnchor,
                                                    constant: -Metrics.padding),
@@ -581,6 +658,19 @@ final class KeeperWindowController: NSObject {
         L10n.select(languageTabs.selectedSegment == 0 ? .simplifiedChinese : .english)
     }
 
+    /// Applies the picked mark on the spot.
+    ///
+    /// Unlike the language tab this needs no relaunch: it changes one image, and none of the
+    /// window's strings depend on it. The menu bar is redrawn before the picker's own button
+    /// is updated, so the control can never show a mark the menu bar is not wearing.
+    @objc private func iconStyleChanged(_ sender: NSMenuItem) {
+        guard let raw = sender.representedObject as? String,
+              let style = MenuBarIconStyle(rawValue: raw) else { return }
+        MenuBarIconStyle.current = style
+        (NSApp.delegate as? AppDelegate)?.applyIconStyle()
+        syncIconStylePicker()
+    }
+
     @objc private func autoCollapseToggled() {
         FoldController.shared.collapsesOnLaunch = autoCollapseCheckbox.state == .on
     }
@@ -684,6 +774,7 @@ final class KeeperWindowController: NSObject {
         autoCollapseCheckbox.isEnabled = usable
         autoCollapseCheckbox.state = fold.collapsesOnLaunch ? .on : .off
         applyLanguageSelection()
+        syncIconStylePicker()
     }
 
     /// Points the tab at the language that is actually on screen.
@@ -695,6 +786,22 @@ final class KeeperWindowController: NSObject {
     /// be worse — clicking it would be the only way to find out.
     private func applyLanguageSelection() {
         languageTabs.selectedSegment = L10n.effectiveCode.hasPrefix("zh") ? 0 : 1
+    }
+
+    /// Points the picker at the style actually in effect, and stamps that mark on the control
+    /// itself.
+    ///
+    /// Reading the preference back — rather than trusting the item that was clicked — is what
+    /// keeps the control honest: the same path runs at launch, when nothing was clicked at
+    /// all, and it picks up a value written by an earlier run of the app.
+    private func syncIconStylePicker() {
+        let style = MenuBarIconStyle.current
+        if let index = MenuBarIconStyle.allCases.firstIndex(of: style) {
+            iconStylePicker.selectItem(at: index)
+        }
+        iconStylePicker.image = iconStyleThumbnail(style)
+        iconStylePicker.imagePosition = .imageOnly
+        iconStylePicker.toolTip = L("window.iconStyle.tooltip", L(style.localizationKey))
     }
 
     /// Reports what the hiding mechanism is doing, in priority order. The verification

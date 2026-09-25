@@ -204,17 +204,23 @@ thread is parked inside the menu's event tracking.
   Python so that `make icon` works on a fresh clone: the earlier Pillow version needed a
   `pip install` that nothing declared, and read its input from a gitignored folder.
   `Supporting/AppIconSource.png` is the tracked source.
-- **Template images recolour away any state carried by colour.** The menu bar icon was a
+- **Template images recolour away any state carried by colour.** The menu bar icon is a
   template image (`isTemplate = true`): a single black-and-transparent artwork, correct in
-  both light and dark menu bars. Since 1.3.0 the state icons are the daisies — coloured and
-  smiling when folded, grey and asleep when expanded — and the whole point of that design is
-  the colour difference, which template recolouring would flatten to one monochrome shape.
-  So the daisies load with `isTemplate = false` and the capsule remains only as the brand
-  mark and the fallback. The rule that survives: never communicate state through
+  both light and dark menu bars. The daisies are the opposite — coloured and smiling when
+  folded, grey and asleep when expanded — and the whole point of that design is the colour
+  difference, which template recolouring would flatten to one monochrome shape. So the two
+  cannot be the same image, and since 1.4.0 they are two *options* rather than one:
+  `MenuBarIconStyle` picks between them, the daisies always load with `isTemplate = false`,
+  and the capsule stays the default. That default is the whole lesson of 1.3.0, which shipped
+  the daisy unconditionally — an upgrade repainted everybody's menu bar, which no optional
+  appearance change should ever do. The rule that survives: never communicate state through
   `alphaValue`, and never put two states that differ only by colour into a template image.
-- **Sizing**: menu bar assets are specified in points (the capsule was `44 × 18`, the daisy
-  is an 18 pt square) with an `@2x` variant for Retina. The build copies `Resources/`
-  verbatim, so `.lproj` folders and image variants keep their structure.
+- **Sizing**: menu bar assets are specified in points (the capsule is `44 × 18`, the daisy
+  is an 18 pt square) with an `@2x` variant for Retina. The two have different aspect ratios,
+  which is why the picker's thumbnails are normalised by *height*: letting each mark keep its
+  own scale resized the control — and shifted the headline beside it — on every switch. The
+  build copies `Resources/` verbatim, so `.lproj` folders and image variants keep their
+  structure.
 
 ## 8. Signing and the Accessibility grant
 

@@ -82,6 +82,12 @@
 "window.autoCollapse" = "启动时自动检测并收起";
 "window.autoCollapse.tooltip" = "默认开启。启动时自动扫描菜单栏，把所有可收起的 App 一并收进隐藏区；你手动放回的 App 不会被再次收起。";
 
+/* 菜单栏图标样式。选择器按钮显示的是图形，所以这两个名字出现在它的菜单与提示里；
+   「刘海图标」即本工具一直以来的胶囊形品牌标。 */
+"window.iconStyle.capsule" = "刘海图标";
+"window.iconStyle.daisy" = "小雏菊";
+"window.iconStyle.tooltip" = "菜单栏上显示哪个图标 —— 当前：%@。\n刘海图标是本工具一直以来的品牌标；小雏菊会随收起状态变化：已收起时是彩色笑脸，全部展开时是灰色睡脸。";
+
 "window.refresh" = "刷新";
 "window.expandAll" = "全部展开";
 "window.collapse" = "收起";

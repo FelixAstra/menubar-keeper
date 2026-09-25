@@ -70,15 +70,17 @@
     flex: none;
   }
 
-  /* the product's own status item. Since the garden rebrand this is the coloured
-     daisy, not the template capsule: the real app swaps between the coloured and
-     grey daisy with the fold state, and the whole walkthrough runs folded, so the
-     coloured one is the only state the demo ever shows. A plain <img> — no invert
-     filter, the artwork is full colour on purpose. */
+  /* the product's own status item, from the shipping template asset — shown in the
+     style the app ships with, the brand capsule. The garden daisies are an optional
+     menu bar style the user picks in the window, so the walkthrough of a default
+     install keeps the capsule.
+     An <img> with an invert filter is used rather than a CSS mask: the mask
+     shorthand is not honoured reliably in headless Chrome. */
   .pill-img {
-    width: 20px;
-    height: 20px;
+    width: 52px;
+    height: 21px;
     display: block;
+    filter: invert(1);
   }
   .pill-wrap {
     width: 56px;
@@ -657,7 +659,7 @@ function svgGlyph(name, box) {
 /* --- menu bar right-hand side --- */
 $('mb-right').innerHTML = MENU_BAR_GLYPHS.map((g, i) =>
     `<div class="status-item status-app" data-app="${i}">${svgGlyph(g)}</div>`).join('') + `
-  <div class="pill-wrap" id="pill"><img class="pill-img" src="daisy.png" alt=""></div>
+  <div class="pill-wrap" id="pill"><img class="pill-img" src="pill.png" alt=""></div>
   <div class="status-item sys" style="margin-left:8px">${svgGlyph('cc')}</div>
   <div class="status-item sys"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
     <path d="M2.5 8.5a14 14 0 0 1 19 0"/><path d="M6 12.2a9 9 0 0 1 12 0"/><path d="M9.4 15.9a4 4 0 0 1 5.2 0"/>

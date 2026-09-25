@@ -102,6 +102,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var statusItemImage: NSImage? { statusItem?.button?.image }
     func showMainWindow() { windowController.show() }
 
+    /// Puts the current icon-style preference on the menu bar.
+    ///
+    /// Called by the main window the moment the user picks a style. The mark *is* the
+    /// point of that control, so it has to change on the spot rather than at the next
+    /// launch — unlike the language tab, which needs a restart to rebuild every string.
+    func applyIconStyle() { syncStatusIcon() }
+
     // MARK: - Status item
 
     private func configureButton() {
@@ -116,13 +123,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         guard let button = statusItem?.button else { return }
         let collapsed = fold.isCollapsed
 
-        if let image = AppIcons.menuBar(collapsed: collapsed) {
+        if let image = AppIcons.menuBar(collapsed: collapsed, style: .current) {
             button.image = image
             button.title = ""
-            // Deliberately no alpha change per state: this is the solid mark from the
-            // design. Dimming it muddies the artwork. State is carried by the tooltip and
-            // by the floating bar; if `MenuBarTemplateCollapsed` / `Expanded` are ever
-            // added, this picks them up automatically.
+            // Deliberately no alpha change per state: the daisy carries the state in its
+            // colour, and dimming the capsule would just make the mark muddy. State is
+            // also carried by the tooltip and by the floating bar.
             button.alphaValue = 1.0
         } else {
             // Assets missing: fall back to an SF Symbol. The icon is decoration and must

@@ -56,6 +56,9 @@ final class Diagnostics {
         schedule(after: 1.2, when: "layoutdump") { [weak self] in
             self?.runLayoutDump()
         }
+        schedule(after: 1.8, when: "iconstylecheck") { [weak self] in
+            self?.runIconStyleCheck()
+        }
         schedule(after: 1.4, when: "windowshot") { [weak self] in
             self?.runWindowShot()
         }
@@ -127,6 +130,10 @@ final class Diagnostics {
         report("[selftest] bundleID=\(Bundle.main.bundleIdentifier ?? "nil")")
         report("[selftest] version=\(Bundle.main.shortVersion) (\(Bundle.main.buildVersion))")
         report("[selftest] language=\(L10n.effectiveCode) override=\(L10n.language.rawValue)")
+        // The effective style against the raw key: an absent key is the case that matters,
+        // because that is a fresh install, and there the answer has to be `capsule`.
+        report("[selftest] iconStyle=\(MenuBarIconStyle.current.rawValue) "
+               + "rawKey=\(defaults.string(forKey: MenuBarIconStyle.defaultsKey) ?? "nil")")
         report("[selftest] hiddenBundles=\(defaults.stringArray(forKey: keys.hidden) ?? [])")
         report("[selftest] releasedBundles=\(defaults.stringArray(forKey: keys.released) ?? [])")
         // The effective value, not the raw key: auto-fold is registered as defaulting
@@ -147,12 +154,6 @@ final class Diagnostics {
         }
         report("[selftest] statusItem.isVisible=\(delegate.isStatusItemVisible)")
 
-        func describe(_ image: NSImage?) -> String {
-            guard let image else { return "nil" }
-            let reps = image.representations.map { "\($0.pixelsWide)×\($0.pixelsHigh)px" }
-            return "\(image.size.width)×\(image.size.height)pt template=\(image.isTemplate) "
-                + "reps=[\(reps.joined(separator: ","))]"
-        }
         report("[selftest] appIcon=\(describe(AppIcons.appIcon))")
         report("[selftest] menuBar.expanded=\(describe(AppIcons.menuBar(collapsed: false)))")
         report("[selftest] menuBar.collapsed=\(describe(AppIcons.menuBar(collapsed: true)))")
@@ -161,6 +162,96 @@ final class Diagnostics {
         defaults.set("ok", forKey: "MenuBarKeeper.selftest")
         report("[selftest] writeReadback=\(defaults.string(forKey: "MenuBarKeeper.selftest") ?? "nil")")
         defaults.removeObject(forKey: "MenuBarKeeper.selftest")
+    }
+
+    /// One line describing an image: the size the UI lays out with, whether macOS is
+    /// recolouring it, and the pixels that actually made it into the bundle.
+    ///
+    /// Three separate things, and each has gone wrong at least once — a 44 pt icon with
+    /// nothing but a 1× representation, a daisy flattened by template recolouring, and an
+    /// asset that never reached the bundle at all. Reporting them separately is what makes
+    /// the output tell those apart instead of just saying "an image exists".
+    private func describe(_ image: NSImage?) -> String {
+        guard let image else { return "nil" }
+        let reps = image.representations.map { "\($0.pixelsWide)×\($0.pixelsHigh)px" }
+        return "\(image.size.width)×\(image.size.height)pt template=\(image.isTemplate) "
+            + "reps=[\(reps.joined(separator: ","))]"
+    }
+
+    /// Exercises the icon-style picker the way a click does, and reports what changed.
+    ///
+    /// The wiring is the point. Which artwork a given style resolves to is easy enough to
+    /// judge by eye, but "picking a style really redraws the menu bar" runs through four
+    /// things — the menu item, the window's action, the stored preference and
+    /// `AppDelegate.applyIconStyle` — and a probe that called those directly would prove
+    /// nothing about the control the user actually clicks. So this finds the real
+    /// `NSPopUpButton` on the content view, fires the real `NSMenuItem` action, and then
+    /// looks at the status item's image rather than at the preference alone.
+    ///
+    /// The stored value is restored exactly as found — including removing the key when it
+    /// was absent, which is the state a fresh install is in and the one that has to keep
+    /// resolving to the brand capsule.
+    private func runIconStyleCheck() {
+        guard claim("iconstylecheck") else { return }
+        let defaults = UserDefaults.standard
+        let key = MenuBarIconStyle.defaultsKey
+        let originalRaw = defaults.string(forKey: key)
+        let original = MenuBarIconStyle.current
+
+        delegate.showMainWindow()
+        after(1.5) { [weak self] in
+            guard let self else { return }
+            guard let window = NSApp.windows.first(where: {
+                $0.isVisible && $0.title == L("window.title")
+            }), let content = window.contentView,
+                let picker = self.firstDescendant(of: content, as: NSPopUpButton.self) else {
+                self.report("[iconstyle] no picker on the main window")
+                return
+            }
+
+            self.report("[iconstyle] start style=\(original.rawValue) rawKey=\(originalRaw ?? "nil") "
+                        + "items=\(picker.itemTitles) selected=\(picker.indexOfSelectedItem) "
+                        + "button=\(self.describe(picker.image)) "
+                        + "statusItem=\(self.describe(self.delegate.statusItemImage))")
+
+            /// Runs an item's own target/action — exactly what AppKit does on a click, rather
+            /// than a shortcut past the wiring this probe exists to check.
+            func fire(_ item: NSMenuItem) -> Bool {
+                guard let action = item.action, let target = item.target else { return false }
+                NSApp.sendAction(action, to: target, from: item)
+                return true
+            }
+
+            for style in MenuBarIconStyle.allCases where style != original {
+                let title = L(style.localizationKey)
+                guard let item = picker.item(withTitle: title), fire(item) else {
+                    self.report("[iconstyle] no menu item titled \(title)")
+                    continue
+                }
+                self.report("[iconstyle] clicked=\(title) "
+                            + "stored=\(defaults.string(forKey: key) ?? "nil") "
+                            + "resolved=\(MenuBarIconStyle.current.rawValue) "
+                            + "picker.selected=\(picker.indexOfSelectedItem) "
+                            + "picker.button=\(self.describe(picker.image)) "
+                            + "statusItem=\(self.describe(self.delegate.statusItemImage))")
+            }
+
+            // Put it back through the same path, then restore the key itself: writing
+            // "capsule" is not the same state as never having written anything.
+            if let item = picker.item(withTitle: L(original.localizationKey)) {
+                _ = fire(item)
+            }
+            if let originalRaw {
+                defaults.set(originalRaw, forKey: key)
+            } else {
+                defaults.removeObject(forKey: key)
+            }
+            self.report("[iconstyle] restored style=\(MenuBarIconStyle.current.rawValue) "
+                        + "rawKey=\(defaults.string(forKey: key) ?? "nil") "
+                        + "picker.selected=\(picker.indexOfSelectedItem) "
+                        + "picker.button=\(self.describe(picker.image)) "
+                        + "statusItem=\(self.describe(self.delegate.statusItemImage))")
+        }
     }
 
     // MARK: - Hiding verification
