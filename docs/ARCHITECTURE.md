@@ -82,7 +82,8 @@ otherwise it says so in orange. Silent failure is what makes menu bar utilities 
 ## Localization
 
 `Localization.swift` resolves English or Simplified Chinese from the system language, with a
-manual override stored in `UserDefaults`. Strings live in
+manual override stored in `UserDefaults` and chosen from the 中 / EN tab in the window's title
+row (⌥-clicking it clears the override and follows the system again). Strings live in
 `Resources/<lang>.lproj/Localizable.strings`; the app window's display name comes from
 `InfoPlist.strings`. Adding a language means adding a `.lproj` directory and one case to
 `L10n.Language` — no code changes elsewhere.

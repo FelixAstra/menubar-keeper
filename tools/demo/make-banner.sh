@@ -15,7 +15,11 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 FRAMES="${1:-frames}"
-OUT="${2:-../docs/images/menu-bar.png}"
+# Two levels up, not one: this script has already moved into `tools/demo`, and the
+# repository's images live in `docs/images`. `../docs` would be `tools/docs` — a directory
+# that does not exist, which is how this default used to write the banner somewhere nobody
+# was looking.
+OUT="${2:-../../docs/images/menu-bar.png}"
 AT=8400
 # 168 device pixels at 2× = 84 pt: the menu bar (32 pt), the pointer-free gap, the
 # floating bar (40 pt) and a little air underneath.

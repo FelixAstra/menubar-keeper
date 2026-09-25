@@ -127,11 +127,28 @@ launch through LaunchServices:
 
 | Flag | What it does |
 |---|---|
+| `autoshow` | opens the main window |
+| `showbar` | shows the floating bar |
 | `selftest` | prints discovered apps, icon counts, resolved language, loaded assets |
 | `verify` | hides one app, rescans, asserts the outcome, restores |
+| `releasecheck` | walks one app through select → release and asserts the release was recorded |
 | `toggletest` | synthesises three clicks on the app's own icon, asserts `true/false/true` |
 | `menutest` | opens an icon's context menu (blocking; dismissed from a background thread) |
 | `bartoggle` | flips the collapse state and asserts the button's symbol followed |
+| `layoutdump` | logs the list's real geometry, every control's frame, whether any two collide, how much of the headline survives beside the language tab, and whether that tab agrees with the language in force |
+| `windowshot` | renders the window from the view hierarchy to `/tmp/menubarkeeper-window.png` — no Screen Recording permission, nothing has to be in front of it |
+| `sectiontest` | opens and closes the system items section through its real control and reports the row counts, the document height, and whether the last row ended up on screen |
+
+`layoutdump` is the one to reach for first when a window looks wrong. Frames are the only
+thing a screenshot cannot report: eleven rows laid out on one set of coordinates draw as a
+single row, and `tamic=Y` on a view that takes part in a constraint chain means the engine
+ignored every constraint naming it — silently, because such a view has handed its frame back
+to its superview and there is no frame left to report a conflict about.
+
+`windowshot` lays down `NSColor.windowBackgroundColor` before drawing, in the view's own
+effective appearance. The bitmap starts transparent and the content view paints no background,
+so a dark-appearance window otherwise came out as light text over nothing: composited onto
+white, every label disappeared and the shot looked like a collapsed layout.
 
 ## 6. Two UI traps
 

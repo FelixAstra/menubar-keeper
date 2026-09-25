@@ -15,18 +15,19 @@ final class FlippedView: NSView {
 final class KeeperWindowController: NSObject {
 
     private enum Metrics {
-        /// Tall enough for the two footer rows *and* nine list rows plus the section header.
-        /// The footer grew by a row to stop its controls overlapping; the window grew with
-        /// it rather than taking the height out of the list, which needs to stay fully
-        /// visible — that was the last thing reported as broken.
-        static let windowSize = NSSize(width: 620, height: 630)
+        /// Tall enough for the single footer row *and* nine list rows plus the section header.
+        /// The footer briefly needed two rows to keep its controls apart; the language picker
+        /// has since moved up into the title row and the *Detect and hide on launch* checkbox
+        /// now shares the button row, so the height the second row was taking goes back to
+        /// the list — the part that has to stay fully visible.
+        static let windowSize = NSSize(width: 620, height: 602)
         static let padding: CGFloat = 16
         static let listPadding: CGFloat = 8
         static let brandSpacing: CGFloat = 10
         static let lineSpacing: CGFloat = 4
         static let buttonSpacing: CGFloat = 10
-        /// Vertical gap between the preferences row and the action row.
-        static let footerRowSpacing: CGFloat = 10
+        /// Gap between the state headline and the language tab that closes the title row.
+        static let languageTabGap: CGFloat = 12
         static let controlsBottomInset: CGFloat = 14
         /// Leading inset of the section header's content, matching the list rows.
         static let rowInset: CGFloat = 12
@@ -44,8 +45,16 @@ final class KeeperWindowController: NSObject {
     private let scrollView = NSScrollView()
     private let hintLabel = NSTextField(labelWithString: "")
     private let autoCollapseCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
-    private let languageCaption = NSTextField(labelWithString: "")
-    private let languagePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
+    /// The 中 / EN switcher, parked in the trailing corner of the title row.
+    ///
+    /// Its two labels are literals rather than lookups, for the same reason the old picker
+    /// hardcoded them: an endonym is written in its own language, so "中" and "EN" read the
+    /// same whichever language is active — translating them would make the control hardest to
+    /// use exactly when the user needs it.
+    private let languageTabs = NSSegmentedControl(labels: ["中", "EN"],
+                                                  trackingMode: .selectOne,
+                                                  target: nil,
+                                                  action: nil)
     private let refreshButton = NSButton(title: "", target: nil, action: nil)
     private let restoreButton = NSButton(title: "", target: nil, action: nil)
     private let collapseButton = NSButton(title: "", target: nil, action: nil)
@@ -142,6 +151,14 @@ final class KeeperWindowController: NSObject {
 
         stateLabel.font = .systemFont(ofSize: 13, weight: .semibold)
         stateLabel.lineBreakMode = .byTruncatingTail
+        // The language tab outranks the headline, because they share a row and the tab is
+        // already as small as it goes. At the default resistance a long translation would
+        // push the tab towards the edge instead of shortening itself; dropping this lets the
+        // sentence be clipped, which still reads, and keeps the control where it belongs.
+        stateLabel.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        // Named for the layout probe, which has to measure how much of this sentence the
+        // language tab leaves room for.
+        stateLabel.identifier = NSUserInterfaceItemIdentifier("stateHeadline")
 
         mechanismLabel.font = .systemFont(ofSize: 10.5)
         mechanismLabel.textColor = .secondaryLabelColor
@@ -185,13 +202,23 @@ final class KeeperWindowController: NSObject {
 
         autoCollapseCheckbox.toolTip = L("window.autoCollapse.tooltip")
 
-        languageCaption.font = .systemFont(ofSize: 11)
-        languageCaption.textColor = .secondaryLabelColor
-        languageCaption.stringValue = L("language.label")
-
-        languagePopUp.toolTip = L("language.label")
-        languagePopUp.addItems(withTitles: L10n.Language.allCases.map(\.endonym))
-        languagePopUp.selectItem(at: L10n.Language.allCases.firstIndex(of: L10n.language) ?? 0)
+        // `small`, and deliberately so: the title row is sized by the 18 pt brand mark, and a
+        // regular-size segmented control would add ten points of height to every window to
+        // say two characters.
+        languageTabs.controlSize = .small
+        languageTabs.segmentStyle = .rounded
+        languageTabs.toolTip = L("language.tooltip")
+        // Pinned rigid, because the tab is the one control in this row that must never
+        // stretch. Left at its defaults an `NSSegmentedControl` hugs its content less than the
+        // text field beside it does, so the row's spare width goes to the tab: two
+        // single-character labels came out 264 pt wide, a blue bar across a third of the
+        // window. The headline is the right thing to absorb that width instead — it is
+        // left-aligned, so an over-wide frame is invisible, and it is the only view here that
+        // has anything useful to do with the room.
+        languageTabs.setContentHuggingPriority(.required, for: .horizontal)
+        languageTabs.setContentCompressionResistancePriority(.required, for: .horizontal)
+        // Named for the layout probe, which reports every control it finds on the content view.
+        languageTabs.identifier = NSUserInterfaceItemIdentifier("languageTabs")
 
         refreshButton.bezelStyle = .rounded
         restoreButton.bezelStyle = .rounded
@@ -199,13 +226,12 @@ final class KeeperWindowController: NSObject {
         collapseButton.bezelStyle = .rounded
         collapseButton.keyEquivalent = "\r"
 
-        // The footer's labels give way before its controls do. With the rows anchored from
-        // both edges there is nothing to stop two of them meeting in the middle, and a
-        // translation that is longer than the English one is all it takes — the English
-        // "Detect and hide on launch" already needed 29 pt more than the row had. Dropping
-        // the compression resistance of the two most expendable titles makes the engine
-        // shorten those instead of letting anything overlap, and both already carry a
-        // tooltip, so nothing is lost by truncating.
+        // The footer's labels give way before its controls do. Two groups are anchored from
+        // opposite edges of one row — the launch checkbox from the left, the three buttons
+        // from the right — and without this nothing stops them meeting in the middle once a
+        // translation grows. Dropping the compression resistance of the two most expendable
+        // titles makes the engine shorten those instead of letting anything overlap, and both
+        // already carry a tooltip, so nothing is lost by truncating.
         for label in [autoCollapseCheckbox, refreshButton] {
             label.cell?.lineBreakMode = .byTruncatingTail
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -257,7 +283,7 @@ final class KeeperWindowController: NSObject {
         guard let content = window.contentView else { return }
         let allViews: [NSView] = [
             brandIcon, stateLabel, mechanismLabel, summaryLabel, scrollView, hintLabel,
-            autoCollapseCheckbox, languageCaption, languagePopUp, refreshButton, restoreButton,
+            autoCollapseCheckbox, languageTabs, refreshButton, restoreButton,
             collapseButton,
         ]
         for view in allViews {
@@ -275,8 +301,18 @@ final class KeeperWindowController: NSObject {
             stateLabel.centerYAnchor.constraint(equalTo: brandIcon.centerYAnchor),
             stateLabel.leadingAnchor.constraint(equalTo: brandIcon.trailingAnchor,
                                                 constant: Metrics.brandSpacing),
-            stateLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor,
-                                                 constant: -Metrics.padding),
+            // The headline stops at the language tab instead of running to the window edge,
+            // because the title row now carries the tab in its trailing corner. It is the
+            // headline that gives way (see the compression resistance above).
+            stateLabel.trailingAnchor.constraint(equalTo: languageTabs.leadingAnchor,
+                                                 constant: -Metrics.languageTabGap),
+
+            // The tab closes the title row: same baseline as the brand mark, flush with the
+            // right-hand margin everything else lines up on. Putting it here rather than in
+            // the footer is what buys the footer back its single row.
+            languageTabs.centerYAnchor.constraint(equalTo: brandIcon.centerYAnchor),
+            languageTabs.trailingAnchor.constraint(equalTo: content.trailingAnchor,
+                                                   constant: -Metrics.padding),
 
             mechanismLabel.topAnchor.constraint(equalTo: stateLabel.bottomAnchor,
                                                 constant: Metrics.lineSpacing),
@@ -311,37 +347,26 @@ final class KeeperWindowController: NSObject {
             hintLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: Metrics.padding),
             hintLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -Metrics.padding),
 
-            // Two rows rather than one, because one row cannot hold this much text in
-            // English: "Detect and hide on launch" + the language picker + three buttons
-            // need about 617 pt of the 588 pt available, and the 29 pt that did not fit was
-            // simply drawn on top of the Refresh button. Nothing was logged, because two
-            // views anchored from opposite edges — one from the left, one from the right —
-            // satisfy every constraint while occupying the same space.
-            //
-            // Preferences on top, actions on the bottom edge; the pairing is also why the
-            // rows can now be given guards (see below) that make an overlap impossible
-            // rather than merely absent.
-            languagePopUp.trailingAnchor.constraint(equalTo: content.trailingAnchor,
-                                                    constant: -Metrics.padding),
-            languagePopUp.bottomAnchor.constraint(equalTo: collapseButton.topAnchor,
-                                                  constant: -Metrics.footerRowSpacing),
-
-            languageCaption.trailingAnchor.constraint(equalTo: languagePopUp.leadingAnchor,
-                                                      constant: -8),
-            languageCaption.centerYAnchor.constraint(equalTo: languagePopUp.centerYAnchor),
-
+            // One row, not two: the launch checkbox on the left edge, the three actions on the
+            // right. This row only fits because the language picker left it — an earlier build
+            // put the picker between the two groups, which needed about 617 pt of the 588 pt
+            // available in English and drew the 29 pt that did not fit on top of Refresh.
+            // Nothing is logged when that happens: two views anchored from opposite edges —
+            // one from the left, one from the right — satisfy every constraint while
+            // occupying the same space. Hence the guard below, which makes an overlap
+            // impossible rather than merely absent.
             autoCollapseCheckbox.leadingAnchor.constraint(equalTo: content.leadingAnchor,
                                                           constant: Metrics.padding),
-            autoCollapseCheckbox.centerYAnchor.constraint(equalTo: languagePopUp.centerYAnchor),
-            // The guard, not a nicety: with both sides pinned it is the *only* constraint
-            // that keeps the checkbox and the picker apart. It cannot be broken, so a
-            // longer translation has to shorten a label instead of overlapping one.
+            autoCollapseCheckbox.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
+            // The guard, not a nicety: with each group pinned to its own edge it is the *only*
+            // constraint that keeps them apart. It cannot be broken, so a longer translation
+            // has to shorten a label instead of overlapping one.
             autoCollapseCheckbox.trailingAnchor.constraint(
-                lessThanOrEqualTo: languageCaption.leadingAnchor,
+                lessThanOrEqualTo: refreshButton.leadingAnchor,
                 constant: -Metrics.padding
             ),
 
-            hintLabel.bottomAnchor.constraint(equalTo: languagePopUp.topAnchor, constant: -12),
+            hintLabel.bottomAnchor.constraint(equalTo: collapseButton.topAnchor, constant: -12),
 
             collapseButton.trailingAnchor.constraint(equalTo: content.trailingAnchor,
                                                      constant: -Metrics.padding),
@@ -352,19 +377,20 @@ final class KeeperWindowController: NSObject {
                                                     constant: -Metrics.buttonSpacing),
             restoreButton.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
 
-            refreshButton.leadingAnchor.constraint(equalTo: content.leadingAnchor,
-                                                   constant: Metrics.padding),
-            refreshButton.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
-            refreshButton.trailingAnchor.constraint(lessThanOrEqualTo: restoreButton.leadingAnchor,
+            // Refresh leads the action group, immediately left of *Show all*. The chain runs
+            // right to left from the primary button, so each of the three keeps its natural
+            // width and the group stays flush against the trailing margin.
+            refreshButton.trailingAnchor.constraint(equalTo: restoreButton.leadingAnchor,
                                                     constant: -Metrics.buttonSpacing),
+            refreshButton.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
         ])
     }
 
     private func wireActions() {
         autoCollapseCheckbox.target = self
         autoCollapseCheckbox.action = #selector(autoCollapseToggled)
-        languagePopUp.target = self
-        languagePopUp.action = #selector(languageChanged)
+        languageTabs.target = self
+        languageTabs.action = #selector(languageChanged)
         refreshButton.target = self
         refreshButton.action = #selector(refreshClicked)
         restoreButton.target = self
@@ -545,9 +571,14 @@ final class KeeperWindowController: NSObject {
     }
 
     @objc private func languageChanged() {
-        let index = languagePopUp.indexOfSelectedItem
-        guard L10n.Language.allCases.indices.contains(index) else { return }
-        L10n.select(L10n.Language.allCases[index])
+        // ⌥-click returns to following macOS. It is the only sensible place for that state to
+        // live: a two-segment tab has no third cell to put it in, and dropping it entirely
+        // would mean that picking a language once pins the app for good, with no way back.
+        guard NSApp.currentEvent?.modifierFlags.contains(.option) != true else {
+            L10n.select(.system)
+            return
+        }
+        L10n.select(languageTabs.selectedSegment == 0 ? .simplifiedChinese : .english)
     }
 
     @objc private func autoCollapseToggled() {
@@ -652,6 +683,18 @@ final class KeeperWindowController: NSObject {
         autoCollapseCheckbox.title = L("window.autoCollapse")
         autoCollapseCheckbox.isEnabled = usable
         autoCollapseCheckbox.state = fold.collapsesOnLaunch ? .on : .off
+        applyLanguageSelection()
+    }
+
+    /// Points the tab at the language that is actually on screen.
+    ///
+    /// Not at `L10n.language`, which is `.system` on a fresh install and has no segment of its
+    /// own. Resolving it to the code being displayed is what makes the tab tell the truth: on
+    /// a Chinese Mac *Follow System* resolves to 简体中文, so the tab must show 中 selected. A
+    /// tab with nothing highlighted would read as broken, and one showing the wrong half would
+    /// be worse — clicking it would be the only way to find out.
+    private func applyLanguageSelection() {
+        languageTabs.selectedSegment = L10n.effectiveCode.hasPrefix("zh") ? 0 : 1
     }
 
     /// Reports what the hiding mechanism is doing, in priority order. The verification

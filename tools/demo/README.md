@@ -6,8 +6,11 @@ here is part of the shipping app; `Scripts/build.sh` never touches this director
 
 The point of rendering rather than screen-recording is repeatability: the page is a
 **pure function of time**, addressed as `index.html?t=<milliseconds>`, so any frame can
-be produced on its own and produced again identically a year later. `?cursor=0` hides
-the pointer, which is how the still banner is taken.
+be produced on its own and re-produced on demand. `?cursor=0` hides the pointer, which is
+how the still banner is taken.
+
+Repeatable is not the same as byte-identical — see *Checking that an edit changed nothing*
+below for what that means in practice.
 
 ## Regenerating the assets
 
@@ -16,9 +19,12 @@ cd tools/demo
 npm install                 # playwright-core only; it drives the Chrome already on the Mac
 
 node render.mjs frames --fps 20 --duration 13200 --scale 2   # 265 frames, about 3 minutes
-./build-assets.sh frames ../docs/images                      # demo.mp4 + demo.gif
-./make-banner.sh  frames ../docs/images/menu-bar.png         # the still strip
+./build-assets.sh frames ../../docs/images                   # demo.mp4 + demo.gif
+./make-banner.sh  frames ../../docs/images/menu-bar.png      # the still strip
 ```
+
+Two levels up from `tools/demo`, not one: `../docs` is `tools/docs`, which does not exist —
+and `ffmpeg` will happily create it and write the assets where nothing reads them.
 
 `render.mjs` also takes `--times 0,500,1000` for one-off frames, `--query cursor=0` to
 leave the pointer out, and `--scale 1` while iterating.
@@ -27,16 +33,29 @@ leave the pointer out, and `--scale 1` while iterating.
 
 Pruning something from `sim/index.html` that is supposed to be inert is worth proving,
 because "unused" is easy to get wrong — the glyph table is referenced both by name and as
-`GLYPHS.<name>`, so a search for string literals misses half of it. Render a few frames
-from `HEAD` and from the working tree and compare them byte for byte:
+`GLYPHS.<name>`, so a search for string literals misses half of it.
+
+**Do not compare the frames byte for byte.** The same page rendered at the same timestamp
+twice does not produce the same file: Chrome's rasteriser is not deterministic here, and a
+single 1280×800 frame at 2× came back with ~26 000 differing pixels, all of them sub-pixel
+anti-aliasing. A byte comparison therefore reports a difference every time, including
+between two runs of the identical file, which is worse than no check at all.
+
+Compare a region you can reason about instead. Rendering a *different* page and diffing the
+result is still useful — a real layout change moves whole edges and shows up as thousands of
+pixels across a wide band, where the jitter is a few hundred scattered along text:
 
 ```bash
 mkdir -p /tmp/before && git show HEAD:tools/demo/sim/index.html > /tmp/before/index.html
 cp sim/pill.png sim/appicon.png sim/wallpaper.jpg /tmp/before/
-node render.mjs /tmp/after  --times 0,3000,9700,13400 --scale 1
-node render.mjs /tmp/before --times 0,3000,9700,13400 --scale 1 --sim /tmp/before
-md5 -q /tmp/before/*.png /tmp/after/*.png      # the two groups must agree, file by file
+node render.mjs /tmp/after  --times 0,3000,5700,9700 --scale 1
+node render.mjs /tmp/before --times 0,3000,5700,9700 --scale 1 --sim /tmp/before
+# then look at the pairs, or count differing pixels per frame
 ```
+
+The banner is a case in point: regenerating it produces a file that differs from the
+committed one by about 440 pixels in the right-hand quarter, which is the same number the
+same file differs from itself by. Nothing had changed.
 
 ## How the walkthrough is laid out
 

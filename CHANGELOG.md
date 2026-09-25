@@ -4,6 +4,66 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-09-25
+
+### Added
+
+- The layout probe reports how much of the state headline survives beside the language tab,
+  and whether that tab agrees with the language actually in force. A clipped label reports the
+  width it was handed rather than the width its text wants, so the two have to be compared;
+  and a tab showing the wrong half would cost a restart to find out.
+- `windowshot` lays down the window's own colour before drawing. The bitmap starts transparent
+  and the content view paints no background of its own, so a dark-appearance window rendered as
+  light text over nothing: composited onto white, every label disappeared — which reads exactly
+  like a layout that has collapsed. It was the one artifact whose whole job is to be looked at,
+  and half of it was blank.
+
+### Changed
+
+- **The language switcher moved into the title row**, as a 中 / EN tab in the top-right corner,
+  and **the footer is back to a single row**: *Detect and hide on launch* at its left, then
+  *Refresh* immediately left of *Show all*, then the primary button. The two belong together —
+  the picker is what made the footer need two rows in 1.1.0. It sat between the checkbox and
+  the buttons, and in English the row needed 617 pt of the 588 pt available, so it was split.
+  Moving the picker up leaves a row that fits with a fifth of its width to spare, and the
+  height the second row was using goes back to the app list, which is the part that has to stay
+  visible. The window is 620×602 rather than 620×630.
+- 中 / EN is a `NSSegmentedControl` rather than a pop-up: the current language is one click
+  away instead of two, and nothing is hidden behind a menu. It shows the language *in effect*
+  rather than the stored choice — a fresh install stores "follow macOS", which has no segment
+  of its own, so the tab resolves it, and a Chinese Mac shows 中 selected. Holding ⌥ while
+  clicking returns to following macOS, which a two-segment tab has nowhere else to put.
+- The headline gives way before the tab does. They share the title row and the tab has to stay
+  legible, while the sentence still reads when shortened — so it is the headline that carries
+  the low compression resistance and truncates. Both languages leave about 170 pt spare at
+  620 pt wide, measured rather than assumed.
+- Switching to the language already in effect no longer restarts the app; it pins the choice
+  and stops. Otherwise clicking 中 on a Chinese Mac would raise "Language changed", relaunch,
+  and arrive at exactly the same window.
+- The demo in `tools/demo` mirrors the new window — the tab in the title row, the footer on one
+  row — so the README's animation keeps showing the interface that exists.
+
+### Fixed
+
+- **`tools/demo`'s regeneration instructions wrote the assets to the wrong directory.**
+  `./build-assets.sh frames ../docs/images` looks right from `tools/demo` and is not: one level
+  up is `tools/docs/images`, and `ffmpeg` creates a missing output directory without
+  complaining, so the new files land where nothing reads them while the committed ones appear
+  untouched. Both the instructions and `make-banner.sh`'s default now point two levels up, and
+  the default was removed in favour of an explicit path — a wrong default is how this went
+  unnoticed.
+- The demo README claimed the renders are reproducible "identically a year later" and offered
+  a byte-for-byte comparison as the way to prove an edit changed nothing. Neither holds:
+  Chrome's rasteriser gives a different file every time, and the same frame rendered twice
+  differed by about 26 000 sub-pixel anti-aliasing pixels. The recipe would have reported a
+  difference on every run, including between two runs of the same file. Both claims are
+  replaced with what is actually true, and the gap is listed in the roadmap.
+- **The language tab stretched to a third of the window.** `NSSegmentedControl` hugs its
+  content less than the `NSTextField` beside it does, so the row's spare width went to the tab:
+  two single-character labels came out 264 pt wide, a blue bar running across the title row.
+  It is now pinned rigid at 70.5 pt and the headline absorbs the slack instead, which is
+  invisible because it is left-aligned.
+
 ## [1.1.0] - 2026-09-25
 
 ### Added
@@ -118,5 +178,6 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.2.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.2.0
 [1.1.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.1.0
 [1.0.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.0.0

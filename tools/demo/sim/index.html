@@ -213,7 +213,29 @@
     display: block;
     flex: none;
   }
-  .state { font-size: 13px; font-weight: 600; color: #1d1d1f; }
+  /* The headline gives way before the language tab does, exactly as in the app: it is the
+     sentence that still reads when it is shortened, and the tab is already as small as it
+     goes. `min-width: 0` is what lets a flex child shrink past its content width at all. */
+  .state {
+    font-size: 13px; font-weight: 600; color: #1d1d1f;
+    flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  /* 中 / EN — the trailing corner of the title row, mirroring
+     `NSSegmentedControl(labels: ["中", "EN"], trackingMode: .selectOne)`. Moving the language
+     switcher up here is what lets the footer stay on one line. */
+  .langs {
+    flex: none; margin-left: auto;
+    display: flex;
+    font-size: 11px;
+    line-height: 1;
+    border: 1px solid rgba(0, 0, 0, 0.16);
+    border-radius: 6px;
+    overflow: hidden;
+    background: linear-gradient(#fff, #f2f2f4);
+  }
+  .langs .seg { padding: 3px 8px; color: #1d1d1f; }
+  .langs .seg.on { background: linear-gradient(#3d95ff, #0a7cff); color: #fff; }
   .mech, .summary {
     font-size: 10.5px;
     line-height: 1.4;
@@ -314,19 +336,6 @@
   #controls { display: flex; align-items: center; gap: 16px; }
   .ctl-check { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #1d1d1f; }
   .ctl-check .cbx { width: 13px; height: 13px; border-radius: 4px; }
-  .popup {
-    font-size: 12px;
-    color: #1d1d1f;
-    background: linear-gradient(#fff, #f2f2f4);
-    border: 1px solid rgba(0, 0, 0, 0.16);
-    border-radius: 6px;
-    padding: 2px 6px 2px 8px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07);
-  }
-  .popup .chev { color: #6e6e73; font-size: 9px; }
   #buttons { margin-left: auto; display: flex; gap: 10px; }
   .btn {
     font-size: 12.5px;
@@ -492,6 +501,7 @@
       <div class="win-head">
         <img class="brand" src="pill.png" alt="">
         <div class="state" id="state">&#9675; All icons shown</div>
+        <div class="langs"><div class="seg">中</div><div class="seg on">EN</div></div>
       </div>
       <div class="mech" id="mech">Hiding engine ready &middot; discovery: MenuBarAgent single-window menu bar (macOS 27+)</div>
       <div class="summary" id="summary">The menu bar shows 7 icons from 7 apps (6 can be hidden)</div>
@@ -500,7 +510,6 @@
         <div id="hint">Selecting a row hides that app&rsquo;s menu bar icon right away. Use &ldquo;Show all&rdquo; any time to take a look.</div>
         <div id="controls">
           <div class="ctl-check"><div class="cbx" id="auto-cbx"><div class="tick"></div></div>Hide on launch</div>
-          <div class="popup">Follow System <span class="chev">&#9660;</span></div>
           <div id="buttons">
             <div class="btn">Refresh</div>
             <div class="btn">Show all</div>

@@ -15,22 +15,13 @@ enum L10n {
 
     /// A language the app ships a translation for.
     ///
-    /// `system` means "follow macOS" and is the default. Anything else pins the
-    /// app to that language regardless of the system setting.
-    enum Language: String, CaseIterable {
+    /// `system` means "follow macOS" and is the default. Anything else pins the app to
+    /// that language regardless of the system setting — which is what the 中 / EN tab in
+    /// the main window's title row writes.
+    enum Language: String {
         case system
         case english = "en"
         case simplifiedChinese = "zh-Hans"
-
-        /// Name shown in the picker, written in the language itself so it stays
-        /// readable whichever language is currently active.
-        var endonym: String {
-            switch self {
-            case .system: return L10n.t("language.system")
-            case .english: return "English"
-            case .simplifiedChinese: return "简体中文"
-            }
-        }
 
         /// The `.lproj` folder this choice resolves to, or nil for `system`.
         var resourceCode: String? {
@@ -99,9 +90,17 @@ enum L10n {
     /// A restart rather than a live refresh: window content, menu titles and the
     /// status item tooltip are all built once and would otherwise be left in the
     /// previous language. Restarting keeps the result honest and predictable.
+    ///
+    /// The restart is skipped when the visible language would not change — picking the
+    /// segment that is already in effect, because `.system` happened to resolve to it. That
+    /// is a real case now that the switcher is a two-segment tab: on a Chinese Mac the tab
+    /// already shows 中, and clicking it would otherwise raise "Language changed", relaunch
+    /// the app and land on exactly the same window.
     static func select(_ choice: Language) {
         guard choice != language else { return }
+        let changesWhatYouSee = choice.resourceCode != effectiveCode
         language = choice
+        guard changesWhatYouSee else { return }
 
         let alert = NSAlert()
         alert.messageText = t("language.changed.title")

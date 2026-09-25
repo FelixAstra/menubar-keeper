@@ -17,10 +17,9 @@
 "common.cancel" = "Cancel";
 "common.thisApp" = "this app";
 
-/* MARK: - Language picker */
+/* MARK: - Language switcher (the 中 / EN tab in the window's title row) */
 
-"language.label" = "Language";
-"language.system" = "Follow System";
+"language.tooltip" = "Interface language — 中 / EN. Picking one restarts MenuBarKeeper to apply it; hold ⌥ while clicking to follow macOS again.";
 "language.changed.title" = "Language changed";
 "language.changed.body" = "MenuBarKeeper will restart to apply the new language.";
 

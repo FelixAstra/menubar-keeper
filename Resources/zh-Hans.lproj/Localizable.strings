@@ -13,10 +13,9 @@
 "common.cancel" = "取消";
 "common.thisApp" = "该 App";
 
-/* MARK: - 语言 */
+/* MARK: - 语言切换（主窗口标题行右上角的 中 / EN） */
 
-"language.label" = "语言";
-"language.system" = "跟随系统";
+"language.tooltip" = "界面语言 —— 中 / EN。点选后本工具会重启以应用；按住 ⌥ 再点可改回「跟随系统」。";
 "language.changed.title" = "语言已更改";
 "language.changed.body" = "菜单栏管家将重新启动以应用新的语言。";
 

@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif?v=3" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the capsule and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=4" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the capsule and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
@@ -108,8 +108,9 @@ documents cover the rest:
 
 ## Localization
 
-English and Simplified Chinese. The language follows your system setting and can be
-overridden in the app window.
+English and Simplified Chinese. The language follows your system setting; the **中 / EN** tab in
+the top-right corner of the window pins one instead, and the app restarts to apply it.
+⌥-clicking the tab goes back to following the system.
 
 ## License
 

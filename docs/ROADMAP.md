@@ -44,6 +44,13 @@ distribution channel and removes the quarantine dance entirely.
   running it on Intel hardware has not been verified.
 - `build.sh` always does a clean full build (~15 s). Incremental builds are not worth the
   complexity at this size.
+- `tools/demo` renders are not byte-reproducible. The page is a pure function of time, but
+  Chrome's rasteriser is not deterministic: two renders of the same timestamp differ by
+  roughly 26 000 sub-pixel anti-aliasing pixels per 1280×800 frame. Nothing about the assets
+  depends on this, but it removes byte comparison as a way to check the simulation, and it
+  gives `build-assets.sh` a reason to be run only when the walkthrough actually changes.
+  Pinning it down means finding the right Chrome flags (`--disable-gpu`,
+  `--font-render-hinting=none`) and re-checking that the committed assets still look right.
 - The release workflow now refuses to publish when the tag disagrees with `VERSION`. Anything
   else that derives from `VERSION` should get the same treatment.
 - No contributor scaffolding (issue templates, `CONTRIBUTING.md`). Worth adding only if the

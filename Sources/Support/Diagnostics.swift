@@ -360,6 +360,10 @@ final class Diagnostics {
     /// them simply passes through one another once the strings grow. Comparing frames is
     /// what turns "the buttons overlap in English" into a number that can be checked
     /// before and after a fix.
+    ///
+    /// The same comparison now covers the title row, which gained the language tab: a
+    /// truncated headline and an overlapping one are different faults and both are visible
+    /// here.
     private func reportFooterControls(_ content: NSView) {
         // Direct children only: the row checkboxes live inside the scroll view and would
         // otherwise be counted as footer controls.
@@ -367,6 +371,8 @@ final class Diagnostics {
         for control in controls {
             report("[layout] control \(name(of: control)) \(box(control))")
         }
+        reportHeadlineFit(in: content)
+
         var collisions: [String] = []
         for i in controls.indices {
             for j in controls.indices where j > i {
@@ -380,7 +386,46 @@ final class Diagnostics {
                + (collisions.isEmpty ? "" : "  ← \(collisions.joined(separator: " "))"))
     }
 
+    /// Reports how much of the state headline survives beside the language tab, and whether
+    /// that tab agrees with the language actually in force.
+    ///
+    /// The headline gives way when the two do not both fit, and that is invisible in a frame
+    /// dump: a clipped label reports the width it was handed, not the width its text wants, so
+    /// the only way to see the clipping is to compare the two. A negative `spare` means
+    /// characters are being cut off — which, for the sentence that is the window's whole
+    /// headline, is worth failing on rather than discovering by eye.
+    ///
+    /// The agreement check guards the other half of the tab's contract. It resolves from the
+    /// *effective* language rather than the stored one, so an unselected tab or one showing the
+    /// wrong half would send the user clicking to find out which language they are in — and a
+    /// click costs a restart.
+    private func reportHeadlineFit(in content: NSView) {
+        guard let label = findControl("stateHeadline", in: content) as? NSTextField else {
+            report("[layout] state headline not found")
+            return
+        }
+        let wanted = label.intrinsicContentSize.width
+        let spare = label.frame.width - wanted
+        report("[layout] headline given=\(Int(label.frame.width)) wanted=\(Int(wanted)) "
+               + "spare=\(Int(spare)) truncated=\(spare < -0.5)")
+        report("[layout] headline text=\"\(label.stringValue)\"")
+
+        guard let tabs = findControl("languageTabs", in: content) as? NSSegmentedControl else {
+            report("[layout] language tab not found")
+            return
+        }
+        let chosen = tabs.selectedSegment >= 0
+            ? (tabs.label(forSegment: tabs.selectedSegment) ?? "?")
+            : "none"
+        let expected = L10n.effectiveCode.hasPrefix("zh") ? "中" : "EN"
+        report("[layout] language tab shows=\(chosen) effective=\(L10n.effectiveCode) "
+               + "override=\(L10n.language.rawValue) agrees=\(chosen == expected)")
+    }
+
     private func name(of control: NSControl) -> String {
+        if let segmented = control as? NSSegmentedControl {
+            return "segmented[selected=\(segmented.selectedSegment)]"
+        }
         if let popup = control as? NSPopUpButton {
             return "popup[\(popup.titleOfSelectedItem ?? "-")]"
         }
@@ -393,9 +438,7 @@ final class Diagnostics {
     /// Writes a PNG of the main window, rendered straight from the view hierarchy.
     ///
     /// Frames being right is not the same as the window drawing: a row can be laid out
-    /// correctly and still paint nothing. `cacheDisplay` draws the views themselves, so
-    /// this needs no Screen Recording permission and nothing has to be on screen in front
-    /// of the window — which also makes it repeatable.
+    /// correctly and still paint nothing.
     private func runWindowShot() {
         delegate.showMainWindow()
         // Deliberately patient. Hiding is applied by the system a second or two after the
@@ -406,6 +449,17 @@ final class Diagnostics {
         }
     }
 
+    /// Writes a PNG of the main window, rendered straight from the view hierarchy.
+    ///
+    /// Nothing has to be in front of the window and no Screen Recording permission is needed,
+    /// which also makes it repeatable.
+    ///
+    /// The bitmap starts transparent and the content view paints no background of its own, so
+    /// the window's own colour is laid down first. Without it a dark-appearance window renders
+    /// as light text over nothing: the PNG composites onto white and every label disappears,
+    /// which is indistinguishable from a layout that has collapsed. Painting the background in
+    /// the appearance the views will actually be drawn in is what keeps light and dark both
+    /// readable, instead of pinning the shot to one theme and being wrong half the time.
     private func writeWindowShot(to path: String) {
         let window = NSApp.windows.first { $0.isVisible && $0.title == L("window.title") }
         guard let view = window?.contentView else {
@@ -416,6 +470,19 @@ final class Diagnostics {
             report("[shot] could not allocate a bitmap for \(view.bounds)")
             return
         }
+
+        let appearance = view.effectiveAppearance
+        NSGraphicsContext.saveGraphicsState()
+        if let context = NSGraphicsContext(bitmapImageRep: rep) {
+            NSGraphicsContext.current = context
+            appearance.performAsCurrentDrawingAppearance {
+                NSColor.windowBackgroundColor.setFill()
+                NSRect(origin: .zero, size: view.bounds.size).fill()
+            }
+            context.flushGraphics()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
         view.cacheDisplay(in: view.bounds, to: rep)
 
         guard let png = rep.representation(using: .png, properties: [:]) else {
@@ -424,7 +491,8 @@ final class Diagnostics {
         }
         do {
             try png.write(to: URL(fileURLWithPath: path))
-            report("[shot] wrote \(path) \(rep.pixelsWide)×\(rep.pixelsHigh)")
+            report("[shot] wrote \(path) \(rep.pixelsWide)×\(rep.pixelsHigh) "
+                   + "appearance=\(appearance.name.rawValue)")
         } catch {
             report("[shot] write failed: \(error.localizedDescription)")
         }
@@ -473,12 +541,18 @@ final class Diagnostics {
 
     /// The section header, found by identifier.
     private func sectionHeader(in view: NSView) -> NSButton? {
-        if let button = view as? NSButton,
-           button.identifier?.rawValue == "systemSectionHeader" {
-            return button
+        findControl("systemSectionHeader", in: view) as? NSButton
+    }
+
+    /// Finds a control the window labelled for the probe. Looking a control up any other way
+    /// does not work: one built from an SF Symbol has no image name to match on, and matching
+    /// a label by its font size is a guess that breaks the moment the design changes.
+    private func findControl(_ identifier: String, in view: NSView) -> NSControl? {
+        if let control = view as? NSControl, control.identifier?.rawValue == identifier {
+            return control
         }
         for sub in view.subviews {
-            if let found = sectionHeader(in: sub) { return found }
+            if let found = findControl(identifier, in: sub) { return found }
         }
         return nil
     }
