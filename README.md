@@ -36,7 +36,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 Hidden apps keep running. Only the icon goes away — and the daisy beside each app in the list
 says which state it is in at a glance: **coloured and smiling** while it is folded away, **grey
 and asleep** while it is back on the menu bar. Point at the daisy and it turns into the trowel,
-which is what digs the icon back out; click it and the app changes state, exactly as ticking its
+which is what digs the icon back out; click it and the app changes state, exactly as clicking its
 row does.
 
 ### What happens on launch

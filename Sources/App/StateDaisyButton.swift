@@ -14,8 +14,8 @@ import AppKit
 /// pointer adds the highlight and the tooltip and nothing else. The rule that holds in both
 /// cases is that this control never shows a mark for an action it cannot perform.
 ///
-/// Clicking it does exactly what clicking the row does, which is what the checkbox does: one
-/// state, three ways in. The row owns that state, so this only asks for it to change.
+/// Clicking it does exactly what clicking the row does: one state, two ways in, both landing on
+/// the same setter. The row owns that state, so this only asks for it to change.
 final class StateDaisyButton: NSButton {
 
     /// Which mark is on the control.
@@ -75,9 +75,10 @@ final class StateDaisyButton: NSButton {
         bezelStyle = .regularSquare
         imagePosition = .imageOnly
         imageScaling = .scaleProportionallyUpOrDown
-        // A focus ring around a picture button inside a list reads as a selected control, and
-        // the row already answers to the keyboard through the checkbox.
-        focusRingType = .none
+        // Keyboard access lives here now. With the checkbox gone this is the row's only
+        // control, so it has to be able to take focus — and a focus ring is drawn only once
+        // something actually gives it focus, which nothing does in a list the pointer drives.
+        focusRingType = .default
         wantsLayer = true
         layer?.cornerRadius = Metrics.cornerRadius
         target = self
@@ -124,8 +125,14 @@ final class StateDaisyButton: NSButton {
             ? NSColor.labelColor.withAlphaComponent(Metrics.highlightAlpha).cgColor
             : NSColor.clear.cgColor
 
-        toolTip = isInteractive ? L(isFolded ? "row.state.restore.tooltip" : "row.state.fold.tooltip") : nil
-        setAccessibilityLabel(toolTip)
+        // The tooltip and the name a screen reader reads are both the action, and only an
+        // interactive row has one. A locked row still needs a name — an unnamed button is
+        // worse than one that repeats the word beside it — so there the label is the state.
+        let action = isInteractive
+            ? L(isFolded ? "row.state.restore.tooltip" : "row.state.fold.tooltip")
+            : nil
+        toolTip = action
+        setAccessibilityLabel(action ?? L(isFolded ? "row.state.folded" : "row.state.unfolded"))
     }
 
     private func artwork(for mark: Mark) -> NSImage? {

@@ -1420,7 +1420,7 @@ final class Diagnostics {
     /// truncated headline and an overlapping one are different faults and both are visible
     /// here.
     private func reportFooterControls(_ content: NSView) {
-        // Direct children only: the row checkboxes live inside the scroll view and would
+        // Direct children only: the rows' daisies live inside the scroll view and would
         // otherwise be counted as footer controls.
         let controls = content.subviews.compactMap { $0 as? NSControl }
         for control in controls {
@@ -1632,26 +1632,31 @@ final class Diagnostics {
             + "lastRowVisible=\(lastVisible)"
     }
 
-    /// Reports the x of the count label in a row of each kind.
+    /// Reports where a row of each kind ends, down the right-hand edge.
     ///
-    /// The two sections share one list, so their counts have to sit in the same column.
-    /// A row without a checkbox has to reserve that column, and "reserved" is only correct
-    /// if the numbers line up — which is a measurement, not an assumption.
+    /// The two sections share one list, so their state marks have to sit in the same column —
+    /// that is the whole reason a locked row carries a daisy it cannot click, and "lines up" is
+    /// a measurement, not an assumption. The state word is measured with it: the title stack
+    /// absorbs the slack, so a word at a different x means the row gave way somewhere it should
+    /// not have.
     private func reportRowColumns(in content: NSView) {
         guard let stack = listStack(in: content) else { return }
         let rows = stack.arrangedSubviews.compactMap { $0 as? AppRowView }
         for (kind, row) in [("foldable", rows.first { $0.entry.canFold }),
                             ("locked", rows.first { !$0.entry.canFold })] {
             guard let row else { continue }
-            // The inner stack holds the icon, the (nested) title stack, the count label and
-            // the checkbox-or-spacer. Only the count label is a direct text field.
+            // The inner stack holds the icon, the (nested) title stack, the state word and the
+            // daisy. Both of the last two are looked up by type rather than by position: the
+            // word is the row's only direct text field, the daisy its only control.
             let pieces = row.subviews.first?.subviews ?? []
-            guard let count = pieces.compactMap({ $0 as? NSTextField }).first else {
-                report("[section] \(kind) row: no count label")
-                continue
+            let word = pieces.compactMap { $0 as? NSTextField }.first
+            let mark = pieces.compactMap { $0 as? StateDaisyButton }.first
+            func box(_ view: NSView?) -> String {
+                guard let view else { return "none" }
+                return String(format: "x=%.1f right=%.1f", view.frame.origin.x, view.frame.maxX)
             }
-            report("[section] \(kind) row count label at x=\(count.frame.origin.x) "
-                   + "right=\(count.frame.maxX) pieces=\(pieces.count)")
+            report("[section] \(kind) row pieces=\(pieces.count) "
+                   + "word=\(box(word)) mark=\(box(mark))")
         }
     }
 

@@ -302,10 +302,10 @@
   }
   .row .meta.dim { color: #aeaeb2; }
 
-  /* The state mark between the word and the checkbox: the daisy that says what
-     the row is doing, swapped for the trowel while the pointer is on a folded
-     row. Sized to the app's 18 pt control in a 20 pt hit area, so it lines up
-     with the checkbox the way it does in the real window. */
+  /* The state mark that ends every row: the daisy that says what the row is doing,
+     swapped for the trowel while the pointer is on a folded row. Sized to the app's
+     18 pt control in a 20 pt hit area, so it sits where the real window puts it —
+     hard against the right edge, with nothing after it. */
   .row .mark {
     width: 20px; height: 20px;
     border-radius: 5px;
@@ -317,6 +317,9 @@
   .row .mark.on { background: rgba(0, 0, 0, 0.10); }
   .row .mark img { width: 15px; height: 15px; display: block; }
 
+  /* The footer's own checkbox — *Hide on launch*, the only blue box left in the
+     window. The list rows had one each until 1.5.0, next to a daisy saying the same
+     thing; the mark does that job on its own now. */
   .cbx {
     width: 14px; height: 14px;
     border-radius: 4px;
@@ -334,10 +337,13 @@
     opacity: 0;
   }
   .cbx .tick svg { width: 10px; height: 10px; color: #fff; display: block; }
-  .cbx.locked {
-    background: #e9e9ec;
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.10);
+  /* Ticked: the blue the app draws. Only the footer's box is ever in this state — the row
+     checkboxes that used to toggle in and out of it are gone. */
+  .cbx.on {
+    background: #0a7cff;
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
   }
+  .cbx.on .tick { opacity: 1; }
 
   #footer {
     margin-top: auto;
@@ -708,8 +714,7 @@ const rowEls = APPS.map((a, i) => {
     <div class="app-ico" style="background:${a.color}">${svgGlyph(a.glyph)}</div>
     <div class="texts"><div class="name">${a.name}</div><div class="sub">${a.bundle}</div></div>
     <div class="meta">shown</div>
-    <div class="mark"><img src="daisy-visible.png" alt=""></div>
-    <div class="cbx"><div class="tick">${svgGlyph('check', '0 0 12 10')}</div></div>`;
+    <div class="mark"><img src="daisy-visible.png" alt=""></div>`;
   $('list').appendChild(el);
   return el;
 });
@@ -720,9 +725,16 @@ selfRow.innerHTML = `
   <div class="app-ico" style="background:#1d1d1f">${svgGlyph('cam')}</div>
   <div class="texts"><div class="name">${SELF.name}</div><div class="sub">${SELF.subtitle}</div></div>
   <div class="meta">shown</div>
-  <div class="mark"><img src="daisy-visible.png" alt=""></div>
-  <div class="cbx locked"></div>`;
+  <div class="mark"><img src="daisy-visible.png" alt=""></div>`;
 $('list').appendChild(selfRow);
+
+/* The footer's *Hide on launch* ships ticked, and the box has to show it: the walkthrough
+   was drawing an empty tick, so the one preference the window starts with looked off. The
+   tick is also the mark the row checkboxes used until 1.5.0, and this is the only thing
+   left that draws it. */
+const launchBox = $('auto-cbx');
+launchBox.classList.add('on');
+launchBox.querySelector('.tick').innerHTML = svgGlyph('check', '0 0 12 10');
 
 /* --- floating bar contents are rebuilt whenever the hidden set changes --- */
 const bar = $('floating-bar');
@@ -990,14 +1002,7 @@ function renderWindow(t, sel) {
   geo.rows.forEach((r, i) => {
     const on = sel.hiddenCount > i;
     const row = rowEls[i];
-    const box = row.querySelector('.cbx');
-    const tick = row.querySelector('.tick');
     const meta = row.querySelector('.meta');
-    box.style.background = on ? '#0a7cff' : '#fff';
-    box.style.boxShadow = on
-      ? 'inset 0 0 0 1px rgba(0,0,0,.05)'
-      : 'inset 0 0 0 1px rgba(0,0,0,.22), 0 1px 1px rgba(0,0,0,.05)';
-    tick.style.opacity = on ? '1' : '0';
     /* The word answers "is this app folded away?" in both states. It used to give
        the icon count while the app was on the bar and a word once it was hidden,
        so one column answered two questions and the states did not match. */
@@ -1006,7 +1011,9 @@ function renderWindow(t, sel) {
 
     /* The state mark, and the swap under the pointer. Only a folded row shows the
        trowel — the same asymmetry the app has, where a row on the menu bar has no
-       garden mark for "put it away" and the pointer adds only the highlight. */
+       garden mark for "put it away" and the pointer adds only the highlight.
+       The mark is also the row's state control in the app, so it is the last thing
+       on the row: there is no checkbox after it any more. */
     const mark = row.querySelector('.mark');
     const markBox = boxOf(mark);
     const hovering = pointer.x >= markBox.x && pointer.x <= markBox.x + markBox.w

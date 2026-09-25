@@ -23,6 +23,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
+- **The blue checkbox is gone from the list rows.** It sat three points from a daisy saying the
+  same thing, so every row carried two marks for one fact — and the row read as busier than what
+  it had to say. The daisy is the row's only control now: it shows the state, it changes it, and
+  it is the way in from the keyboard, which the checkbox used to be; the state word rides along as
+  its accessibility value. A locked row keeps its plain sleeping daisy where the checkbox was, so
+  the two sections still line up down the right-hand edge — and the placeholder column that held a
+  space open for a box nobody has any more is gone with it.
 - **Both states of the row now say the same kind of thing.** The column used to report the
   app's icon count while it was on the menu bar and switch to a word once it was hidden, so one
   column answered two different questions and the two states did not look like each other. It
@@ -45,6 +52,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - The demonstration's list rows show the state mark and the state word the app shows. They had
   gone on saying *1 icon* with no mark since 1.3.0, so the README's walkthrough was advertising
   a window that no longer existed.
+- The demonstration's *Hide on launch* box was drawn empty, so the walkthrough showed the one
+  preference that ships ticked as if it were off. It shows the tick now — the same mark the row
+  checkboxes drew, which is the only place it is drawn any more.
 
 ## [1.4.0] - 2026-09-25
 

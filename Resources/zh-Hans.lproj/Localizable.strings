@@ -103,8 +103,7 @@
 "row.state.unfolded" = "未收折";
 "row.state.restore.tooltip" = "取消收折，恢复到菜单栏";
 "row.state.fold.tooltip" = "收折起来，图标移出菜单栏";
-"row.checkbox.tooltip" = "勾选后，该 App 的菜单栏图标会被收进隐藏区";
-"row.tooltip" = "点击整行即可勾选 / 取消";
+"row.tooltip" = "点击整行即可收折 / 恢复此 App";
 "row.tooltip.locked" = "系统组件或本工具自身，不参与折叠";
 "row.subtitle.self" = "%@ · 本工具，不参与折叠";
 "row.subtitle.system" = "%@ · 系统组件，不参与折叠";

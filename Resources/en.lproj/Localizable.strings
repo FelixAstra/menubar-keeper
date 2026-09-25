@@ -107,8 +107,7 @@
 "row.state.unfolded" = "shown";
 "row.state.restore.tooltip" = "Show — put this app's icon back on the menu bar";
 "row.state.fold.tooltip" = "Hide — take this app's icon off the menu bar";
-"row.checkbox.tooltip" = "Select to move this app's menu bar icon into the hidden area";
-"row.tooltip" = "Click anywhere on the row to select or deselect";
+"row.tooltip" = "Click anywhere on the row to fold this app away or bring it back";
 "row.tooltip.locked" = "System item or MenuBarKeeper itself — never hidden";
 "row.subtitle.self" = "%@ · MenuBarKeeper itself, never hidden";
 "row.subtitle.system" = "%@ · system component, never hidden";

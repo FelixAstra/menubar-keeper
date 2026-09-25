@@ -95,5 +95,10 @@ daisy for the trowel while the pointer is on it. That is why the walkthrough's s
 `geo.marks` rather than at the middle of each row — the mark sits about 300 pt to the right of
 the row centre, so a pointer aimed at the centre would never show the swap.
 
+The window's only checkbox is the footer's *Hide on launch*, drawn ticked because that is how it
+ships. The blue box that used to sit beside every row's daisy went in 1.5.0 — the daisy says the
+same thing and is the control — so `.cbx.on` in the stylesheet, which is what draws the tick, is
+applied to the one box the page has left.
+
 `index.html` loads them as ordinary relative files, so opening it directly in a browser
 works too — `file://…/sim/index.html?t=9700` is a quick way to look at one moment.

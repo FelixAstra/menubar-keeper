@@ -6,7 +6,7 @@ final class FlippedView: NSView {
     override var isFlipped: Bool { true }
 }
 
-/// The MenuBarKeeper window: menu bar icons grouped by app, with a checkbox per app to
+/// The MenuBarKeeper window: menu bar icons grouped by app, with a state daisy per app to
 /// move it into the hidden area.
 ///
 /// Views are created as stored properties rather than assigned in `build()` through
@@ -553,7 +553,7 @@ final class KeeperWindowController: NSObject {
         row.onMarkChange = { [weak self] changed in self?.markChanged(changed) }
         listStack.addArrangedSubview(row)
         // One row spans the whole list, so clicking anywhere on it toggles the app and
-        // the checkbox lines up down the right-hand edge. Activated after the row joins
+        // the state daisy lines up down the right-hand edge. Activated after the row joins
         // the hierarchy — before that the two anchors have no common ancestor and
         // activating throws.
         row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true

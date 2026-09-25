@@ -229,11 +229,13 @@ thread is parked inside the menu's event tracking.
   normal use and the probe sets directly, and the check reads back the *mark* — the three marks
   are all 18 pt full-colour images, so only the name the control reports says which one is on
   screen.
-- **One state, three ways in — so the row owns it.** The checkbox, a click anywhere on the row,
-  and the state daisy all ask the row to toggle, and the row's `isMarked` setter is the only
-  thing that writes the checkbox, the word and the daisy. The alternative — each control
-  updating itself — is what makes a row's word disagree with its own checkbox for the second
-  between a click and the next scan.
+- **One state, two ways in — so the row owns it.** A click anywhere on the row and a click on the
+  state daisy both ask the row to toggle, and the row's `isMarked` setter is the only thing that
+  writes the word and the mark. The alternative — each control updating itself — is what makes a
+  row's word disagree with its own state for the second between a click and the next scan. The
+  state itself is a plain `Bool` on the row: it used to live in the row's checkbox, but a checkbox
+  and a daisy three points apart is two marks for one fact, and dropping the box is also what let
+  the daisy take over the keyboard and accessibility duties the checkbox had been carrying.
 
 ## 8. Signing and the Accessibility grant
 
