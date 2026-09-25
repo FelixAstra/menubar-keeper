@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif?v=7" alt="Walkthrough: tick apps in the MenuBarKeeper window and their icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=8" alt="Walkthrough: click the daisy at the end of each row in the MenuBarKeeper window and those apps' icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
@@ -37,14 +37,15 @@ Hidden apps keep running. Only the icon goes away — and the daisy beside each 
 says which state it is in at a glance: **coloured and smiling** while it is folded away, **grey
 and asleep** while it is back on the menu bar. Point at the daisy and it turns into the trowel,
 which is what digs the icon back out; click it and the app changes state, exactly as clicking its
-row does.
+row does. Beside it the row's own word says *hidden* or *shown*, so there is no checkbox to hunt
+for — the daisy is the only control a row has.
 
 ### What happens on launch
 
 MenuBarKeeper scans the menu bar and hides **every app it can hide**, so the bar is clean
 without you picking anything. Anything you send back stays back: the release is remembered, and
 no later scan will hide that app again. Unchecking *Detect and hide on launch* in the window
-stops the scan, leaving only the apps you ticked by hand.
+stops the scan, leaving only the apps you hid by hand.
 
 The scan is skipped if the app is not running from `/Applications` — see below.
 

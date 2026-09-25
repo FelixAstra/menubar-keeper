@@ -11,8 +11,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **The daisy at the end of every app list row is a control now, not a picture.** Point at a
   folded row and it becomes the trowel, with a tooltip saying what the click will do
   (*取消收折，恢复到菜单栏* / *Show — put this app's icon back on the menu bar*); click it and the
-  app changes state. It goes through the same path as clicking the row and as the checkbox, so
-  there is one state with three ways in rather than three controls that can drift apart.
+  app changes state. It goes through the same path as clicking the row, so the row and the mark
+  cannot drift apart: there is one state, and every way in asks the same thing to change it.
 - A `rowstatecheck` probe covers it end to end: what each mark shows at rest and under the
   pointer, that a click on the control really moves the app, and — the failure worth catching —
   that no row ends up saying one thing while the selection says another. A hover cannot be
