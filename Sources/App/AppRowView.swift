@@ -10,6 +10,10 @@ final class AppRowView: NSView {
         static let horizontalInset: CGFloat = 12
         static let verticalInset: CGFloat = 7
         static let spacing: CGFloat = 10
+        /// Width of the checkbox column, reserved on rows that have no checkbox so the
+        /// counts stay in line across both sections of the list. Matches the width the
+        /// stack actually gives the checkbox — measured, not guessed.
+        static let choiceColumn: CGFloat = 16
     }
 
     let entry: MenuBarAppEntry
@@ -43,11 +47,17 @@ final class AppRowView: NSView {
 
         markCheckbox.target = self
         markCheckbox.action = #selector(checkboxToggled)
-        markCheckbox.isEnabled = entry.canFold
-        markCheckbox.toolTip = L(entry.canFold ? "row.checkbox.tooltip" : "row.checkbox.tooltip.locked")
+        markCheckbox.toolTip = L("row.checkbox.tooltip")
         markCheckbox.setContentHuggingPriority(.required, for: .horizontal)
 
-        let row = NSStackView(views: [iconView, textStack, meta, markCheckbox])
+        // A row that cannot be hidden shows no checkbox at all — a disabled one still reads
+        // as "click here to hide this", which is the one thing the row cannot do. A column
+        // of greyed-out boxes also made the list look broken rather than deliberate. These
+        // rows live in their own section, which says the same thing in words.
+        var content: [NSView] = [iconView, textStack, meta]
+        content.append(entry.canFold ? markCheckbox : reservedChoiceColumn())
+
+        let row = NSStackView(views: content)
         row.orientation = .horizontal
         row.alignment = .centerY
         // Not the default. `NSStackView` still defaults to `.gravityAreas`, which only packs
@@ -67,7 +77,18 @@ final class AppRowView: NSView {
             row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Metrics.verticalInset),
         ])
 
-        toolTip = L(entry.canFold ? "row.tooltip" : "row.checkbox.tooltip.locked")
+        toolTip = L(entry.canFold ? "row.tooltip" : "row.tooltip.locked")
+    }
+
+    /// An empty box the width of the checkbox, so a row without one still ends its count
+    /// column in the same place as the rows above it.
+    private func reservedChoiceColumn() -> NSView {
+        let spacer = NSView()
+        spacer.translatesAutoresizingMaskIntoConstraints = false
+        spacer.widthAnchor.constraint(equalToConstant: Metrics.choiceColumn).isActive = true
+        spacer.setContentHuggingPriority(.required, for: .horizontal)
+        spacer.setContentCompressionResistancePriority(.required, for: .horizontal)
+        return spacer
     }
 
     private func makeIconView() -> NSView {

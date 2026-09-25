@@ -77,6 +77,9 @@
 "window.hint" = "勾选 = 该 App 的菜单栏图标立即收进隐藏区；取消勾选 = 放回菜单栏，且下次启动不会再自动收起它。随时可点「全部展开」看一眼。";
 "window.empty" = "没有扫描到任何占用菜单栏的图标。\n若系统设置里已勾选本 App，请退出后重新启动它再试。";
 
+"window.system.header" = "系统组件（%d 个）— 不参与折叠";
+"window.system.tooltip" = "系统自带的菜单栏项目（Wi-Fi、电池、时钟、输入法等）以及本工具自身。这些由 macOS 管理，无法收进隐藏区，因此单独列出。";
+
 "window.autoCollapse" = "启动时自动检测并收起";
 "window.autoCollapse.tooltip" = "默认开启。启动时自动扫描菜单栏，把所有可收起的 App 一并收进隐藏区；你手动放回的 App 不会被再次收起。";
 
@@ -95,8 +98,8 @@
 "row.meta.one" = "1 个图标";
 "row.meta.many" = "%d 个图标";
 "row.checkbox.tooltip" = "勾选后，该 App 的菜单栏图标会被收进隐藏区";
-"row.checkbox.tooltip.locked" = "系统组件或本工具，不参与折叠";
 "row.tooltip" = "点击整行即可勾选 / 取消";
+"row.tooltip.locked" = "系统组件或本工具自身，不参与折叠";
 "row.subtitle.self" = "%@ · 本工具，不参与折叠";
 "row.subtitle.system" = "%@ · 系统组件，不参与折叠";
 

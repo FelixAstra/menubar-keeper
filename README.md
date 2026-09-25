@@ -50,6 +50,7 @@ The scan is skipped if the app is not running from `/Applications` — see below
 | Click the menu bar icon | Show / hide the floating bar of hidden icons |
 | Right-click it (or ⌥-click) | Menu: expand all, permissions, help, quit |
 | Click a row in the window | Hide / unhide that app — an app you unhide is not auto-hidden again |
+| Click *System items (N)* in the window | See the items macOS manages, which can never be hidden |
 | Right-click an icon in the floating bar | Open, Preferences, Hide, Put back, Quit |
 | ⌥⌘M | Show / hide the floating bar |
 | ⌥⌘\\ | Collapse / expand the menu bar |
@@ -97,7 +98,8 @@ documents cover the rest:
 ## Limitations
 
 - Granularity is **per app**, not per icon — you cannot hide one icon of an app and keep another.
-- System items (clock, battery, Control Center) are never touched.
+- System items (clock, battery, Control Center) are never touched. They are listed in their
+  own section at the end of the app list rather than among the apps you can hide.
 - The app is not notarized, so the first launch needs the right-click → Open dance.
 - Tested on macOS 27 with Apple Silicon; the fallback path targets macOS ≤ 26.
 

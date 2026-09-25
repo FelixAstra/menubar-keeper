@@ -15,13 +15,21 @@ final class FlippedView: NSView {
 final class KeeperWindowController: NSObject {
 
     private enum Metrics {
-        static let windowSize = NSSize(width: 620, height: 560)
+        /// Tall enough for the two footer rows *and* nine list rows plus the section header.
+        /// The footer grew by a row to stop its controls overlapping; the window grew with
+        /// it rather than taking the height out of the list, which needs to stay fully
+        /// visible — that was the last thing reported as broken.
+        static let windowSize = NSSize(width: 620, height: 630)
         static let padding: CGFloat = 16
         static let listPadding: CGFloat = 8
         static let brandSpacing: CGFloat = 10
         static let lineSpacing: CGFloat = 4
         static let buttonSpacing: CGFloat = 10
+        /// Vertical gap between the preferences row and the action row.
+        static let footerRowSpacing: CGFloat = 10
         static let controlsBottomInset: CGFloat = 14
+        /// Leading inset of the section header's content, matching the list rows.
+        static let rowInset: CGFloat = 12
     }
 
     // MARK: - Views
@@ -36,12 +44,25 @@ final class KeeperWindowController: NSObject {
     private let scrollView = NSScrollView()
     private let hintLabel = NSTextField(labelWithString: "")
     private let autoCollapseCheckbox = NSButton(checkboxWithTitle: "", target: nil, action: nil)
+    private let languageCaption = NSTextField(labelWithString: "")
     private let languagePopUp = NSPopUpButton(frame: .zero, pullsDown: false)
     private let refreshButton = NSButton(title: "", target: nil, action: nil)
     private let restoreButton = NSButton(title: "", target: nil, action: nil)
     private let collapseButton = NSButton(title: "", target: nil, action: nil)
 
+    /// The "never hidden" section: a rule, a disclosure button and the rows behind it.
+    /// Built once and added to or removed from the list per scan.
+    private let systemHeaderRow = NSView()
+    private let systemHeaderButton = NSButton(title: "", target: nil, action: nil)
+
+    /// Rows the user can act on. The system section is tracked separately — those rows
+    /// can never be selected, so they must not take part in the "how many are selected"
+    /// count.
     private var rows: [AppRowView] = []
+    private var systemRows: [AppRowView] = []
+    /// Whether the system section is open. Collapsed by default: those rows are reference
+    /// material, not part of the task.
+    private var showsSystemItems = false
     private var lastEntries: [MenuBarAppEntry] = []
     private var isScanning = false
     /// Guards the single extra scan that follows a submission. See `recheckAfterCollapse`.
@@ -164,6 +185,10 @@ final class KeeperWindowController: NSObject {
 
         autoCollapseCheckbox.toolTip = L("window.autoCollapse.tooltip")
 
+        languageCaption.font = .systemFont(ofSize: 11)
+        languageCaption.textColor = .secondaryLabelColor
+        languageCaption.stringValue = L("language.label")
+
         languagePopUp.toolTip = L("language.label")
         languagePopUp.addItems(withTitles: L10n.Language.allCases.map(\.endonym))
         languagePopUp.selectItem(at: L10n.Language.allCases.firstIndex(of: L10n.language) ?? 0)
@@ -173,13 +198,67 @@ final class KeeperWindowController: NSObject {
         restoreButton.toolTip = L("window.expandAll")
         collapseButton.bezelStyle = .rounded
         collapseButton.keyEquivalent = "\r"
+
+        // The footer's labels give way before its controls do. With the rows anchored from
+        // both edges there is nothing to stop two of them meeting in the middle, and a
+        // translation that is longer than the English one is all it takes — the English
+        // "Detect and hide on launch" already needed 29 pt more than the row had. Dropping
+        // the compression resistance of the two most expendable titles makes the engine
+        // shorten those instead of letting anything overlap, and both already carry a
+        // tooltip, so nothing is lost by truncating.
+        for label in [autoCollapseCheckbox, refreshButton] {
+            label.cell?.lineBreakMode = .byTruncatingTail
+            label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        }
+
+        systemHeaderButton.isBordered = false
+        systemHeaderButton.alignment = .left
+        systemHeaderButton.controlSize = .small
+        systemHeaderButton.font = .systemFont(ofSize: 11, weight: .semibold)
+        systemHeaderButton.contentTintColor = .secondaryLabelColor
+        systemHeaderButton.imagePosition = .imageLeading
+        systemHeaderButton.image = Self.disclosureImage(expanded: false)
+        // Identifies the control for the layout probe, which has to click it for real to
+        // check that the section opens. Looking it up by its image name does not work:
+        // an image built from an SF Symbol has no name.
+        systemHeaderButton.identifier = NSUserInterfaceItemIdentifier("systemSectionHeader")
+
+        // The rule is what separates "apps you can hide" from "system items you cannot".
+        // Without it the section reads as three more rows that happen to be broken.
+        let rule = NSBox()
+        rule.boxType = .separator
+
+        for view in [rule, systemHeaderButton] {
+            view.translatesAutoresizingMaskIntoConstraints = false
+            systemHeaderRow.addSubview(view)
+        }
+        NSLayoutConstraint.activate([
+            rule.topAnchor.constraint(equalTo: systemHeaderRow.topAnchor, constant: 10),
+            rule.leadingAnchor.constraint(equalTo: systemHeaderRow.leadingAnchor,
+                                          constant: Metrics.rowInset),
+            rule.trailingAnchor.constraint(equalTo: systemHeaderRow.trailingAnchor,
+                                           constant: -Metrics.rowInset),
+
+            systemHeaderButton.topAnchor.constraint(equalTo: rule.bottomAnchor, constant: 7),
+            systemHeaderButton.leadingAnchor.constraint(equalTo: systemHeaderRow.leadingAnchor,
+                                                        constant: Metrics.rowInset),
+            systemHeaderButton.trailingAnchor.constraint(lessThanOrEqualTo: systemHeaderRow.trailingAnchor,
+                                                         constant: -Metrics.rowInset),
+            systemHeaderButton.bottomAnchor.constraint(equalTo: systemHeaderRow.bottomAnchor),
+        ])
+    }
+
+    private static func disclosureImage(expanded: Bool) -> NSImage? {
+        NSImage(systemSymbolName: expanded ? "chevron.down" : "chevron.right",
+                accessibilityDescription: nil)
     }
 
     private func layoutViews() {
         guard let content = window.contentView else { return }
         let allViews: [NSView] = [
             brandIcon, stateLabel, mechanismLabel, summaryLabel, scrollView, hintLabel,
-            autoCollapseCheckbox, languagePopUp, refreshButton, restoreButton, collapseButton,
+            autoCollapseCheckbox, languageCaption, languagePopUp, refreshButton, restoreButton,
+            collapseButton,
         ]
         for view in allViews {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -231,15 +310,38 @@ final class KeeperWindowController: NSObject {
 
             hintLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: Metrics.padding),
             hintLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -Metrics.padding),
-            hintLabel.bottomAnchor.constraint(equalTo: collapseButton.topAnchor, constant: -12),
+
+            // Two rows rather than one, because one row cannot hold this much text in
+            // English: "Detect and hide on launch" + the language picker + three buttons
+            // need about 617 pt of the 588 pt available, and the 29 pt that did not fit was
+            // simply drawn on top of the Refresh button. Nothing was logged, because two
+            // views anchored from opposite edges — one from the left, one from the right —
+            // satisfy every constraint while occupying the same space.
+            //
+            // Preferences on top, actions on the bottom edge; the pairing is also why the
+            // rows can now be given guards (see below) that make an overlap impossible
+            // rather than merely absent.
+            languagePopUp.trailingAnchor.constraint(equalTo: content.trailingAnchor,
+                                                    constant: -Metrics.padding),
+            languagePopUp.bottomAnchor.constraint(equalTo: collapseButton.topAnchor,
+                                                  constant: -Metrics.footerRowSpacing),
+
+            languageCaption.trailingAnchor.constraint(equalTo: languagePopUp.leadingAnchor,
+                                                      constant: -8),
+            languageCaption.centerYAnchor.constraint(equalTo: languagePopUp.centerYAnchor),
 
             autoCollapseCheckbox.leadingAnchor.constraint(equalTo: content.leadingAnchor,
                                                           constant: Metrics.padding),
-            autoCollapseCheckbox.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
+            autoCollapseCheckbox.centerYAnchor.constraint(equalTo: languagePopUp.centerYAnchor),
+            // The guard, not a nicety: with both sides pinned it is the *only* constraint
+            // that keeps the checkbox and the picker apart. It cannot be broken, so a
+            // longer translation has to shorten a label instead of overlapping one.
+            autoCollapseCheckbox.trailingAnchor.constraint(
+                lessThanOrEqualTo: languageCaption.leadingAnchor,
+                constant: -Metrics.padding
+            ),
 
-            languagePopUp.leadingAnchor.constraint(equalTo: autoCollapseCheckbox.trailingAnchor,
-                                                   constant: Metrics.padding),
-            languagePopUp.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
+            hintLabel.bottomAnchor.constraint(equalTo: languagePopUp.topAnchor, constant: -12),
 
             collapseButton.trailingAnchor.constraint(equalTo: content.trailingAnchor,
                                                      constant: -Metrics.padding),
@@ -250,9 +352,11 @@ final class KeeperWindowController: NSObject {
                                                     constant: -Metrics.buttonSpacing),
             restoreButton.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
 
-            refreshButton.trailingAnchor.constraint(equalTo: restoreButton.leadingAnchor,
-                                                    constant: -Metrics.buttonSpacing),
+            refreshButton.leadingAnchor.constraint(equalTo: content.leadingAnchor,
+                                                   constant: Metrics.padding),
             refreshButton.centerYAnchor.constraint(equalTo: collapseButton.centerYAnchor),
+            refreshButton.trailingAnchor.constraint(lessThanOrEqualTo: restoreButton.leadingAnchor,
+                                                    constant: -Metrics.buttonSpacing),
         ])
     }
 
@@ -267,6 +371,8 @@ final class KeeperWindowController: NSObject {
         restoreButton.action = #selector(restoreClicked)
         collapseButton.target = self
         collapseButton.action = #selector(collapseClicked)
+        systemHeaderButton.target = self
+        systemHeaderButton.action = #selector(systemSectionToggled)
     }
 
     // MARK: - Scanning and rendering
@@ -315,20 +421,51 @@ final class KeeperWindowController: NSObject {
             return
         }
 
-        let fold = FoldController.shared
-        for entry in entries {
-            let row = AppRowView(entry: entry)
-            row.isMarked = fold.isHidden(entry.bundleIdentifier) && entry.canFold
-            row.onMarkChange = { [weak self] changed in self?.markChanged(changed) }
-            listStack.addArrangedSubview(row)
-            // One row spans the whole list, so clicking anywhere on it toggles the app and
-            // the checkbox lines up down the right-hand edge. Activated after the row joins
-            // the hierarchy — before that the two anchors have no common ancestor and
-            // activating throws.
-            row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
-            rows.append(row)
+        // Two sections. Everything the user can act on goes in the main list. The system's
+        // own menu bar items — and MenuBarKeeper itself — can never be hidden, so they move
+        // behind a disclosure at the bottom rather than sitting in the list as rows that
+        // look selectable, count towards the list, and do nothing when clicked.
+        rows = entries.filter(\.canFold).map(addRow)
+
+        let locked = entries.filter { !$0.canFold }
+        if !locked.isEmpty {
+            // A header is only worth its space if there is something to collapse it behind.
+            // On a Mac where *nothing* is foldable there is not, so the section stays open.
+            if !rows.isEmpty {
+                systemHeaderButton.title = L("window.system.header", locked.count)
+                systemHeaderButton.toolTip = L("window.system.tooltip")
+                listStack.addArrangedSubview(systemHeaderRow)
+                systemHeaderRow.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
+            }
+            systemRows = locked.map(addRow)
+            updateSystemSection()
         }
         syncControls()
+    }
+
+    /// Adds a row to the list and returns it.
+    private func addRow(_ entry: MenuBarAppEntry) -> AppRowView {
+        let row = AppRowView(entry: entry)
+        row.isMarked = entry.canFold && FoldController.shared.isHidden(entry.bundleIdentifier)
+        row.onMarkChange = { [weak self] changed in self?.markChanged(changed) }
+        listStack.addArrangedSubview(row)
+        // One row spans the whole list, so clicking anywhere on it toggles the app and
+        // the checkbox lines up down the right-hand edge. Activated after the row joins
+        // the hierarchy — before that the two anchors have no common ancestor and
+        // activating throws.
+        row.widthAnchor.constraint(equalTo: listStack.widthAnchor).isActive = true
+        return row
+    }
+
+    /// Shows or hides the system section.
+    ///
+    /// `NSStackView` drops hidden arranged subviews from its layout, so the list closes up
+    /// instead of leaving a gap where the section used to be.
+    private func updateSystemSection() {
+        // With no header there is nothing to collapse behind, so the section stays open.
+        let expanded = systemHeaderRow.superview == nil || showsSystemItems
+        for row in systemRows { row.isHidden = !expanded }
+        systemHeaderButton.image = Self.disclosureImage(expanded: expanded)
     }
 
     private func clearList() {
@@ -337,6 +474,7 @@ final class KeeperWindowController: NSObject {
             view.removeFromSuperview()
         }
         rows.removeAll()
+        systemRows.removeAll()
     }
 
     /// Adds a centred message wrapped in a padded container.
@@ -427,6 +565,37 @@ final class KeeperWindowController: NSObject {
     @objc private func collapseClicked() {
         FoldController.shared.collapse()
         refreshAfterSystemApplies()
+    }
+
+    /// Opens or closes the system section. Purely presentational — nothing here is ever
+    /// submitted to the system — so there is no rescan to follow it.
+    @objc private func systemSectionToggled() {
+        showsSystemItems.toggle()
+        updateSystemSection()
+        guard showsSystemItems else { return }
+        // Deferred by one turn. Un-hiding a row only *marks* the stack for layout, and the
+        // document view keeps reporting its pre-section height until that pass runs — so a
+        // scroll issued now is measured against a height that has not been applied yet and
+        // moves nothing.
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.window.contentView?.layoutSubtreeIfNeeded()
+            self.revealSystemSection()
+        }
+    }
+
+    /// Scrolls the opened section into view.
+    ///
+    /// The list grows downwards into rows that were hidden, and a scroll view keeps its
+    /// scroll position — so the rows appear below the visible area and the disclosure looks
+    /// like it did nothing. Scrolling to the end shows the whole section, since the section
+    /// is shorter than the list.
+    private func revealSystemSection() {
+        let clip = scrollView.contentView
+        let overflow = listContainer.frame.height - clip.bounds.height
+        guard overflow > 0 else { return }
+        clip.scroll(to: NSPoint(x: 0, y: overflow))
+        scrollView.reflectScrolledClipView(clip)
     }
 
     @objc private func restoreClicked() {

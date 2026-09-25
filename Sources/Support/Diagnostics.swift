@@ -59,6 +59,9 @@ final class Diagnostics {
         schedule(after: 1.4, when: "windowshot") { [weak self] in
             self?.runWindowShot()
         }
+        schedule(after: 1.4, when: "sectiontest") { [weak self] in
+            self?.runSectionCheck()
+        }
     }
 
     private func schedule(after delay: TimeInterval, when flag: String, _ body: @escaping () -> Void) {
@@ -328,6 +331,7 @@ final class Diagnostics {
                 return
             }
             self.report("[layout] stack    \(self.box(stack)) arranged=\(stack.arrangedSubviews.count) "
+                        + "hidden=\(stack.arrangedSubviews.filter(\.isHidden).count) "
                         + "fit=\(stack.fittingSize) "
                         + "orientation=\(stack.orientation == .vertical ? "vertical" : "horizontal") "
                         + "alignment=\(stack.alignment.rawValue)")
@@ -344,7 +348,46 @@ final class Diagnostics {
                     self.report("[layout]     piece[\(index)] \(type(of: piece)) \(self.box(piece))")
                 }
             }
+            self.reportFooterControls(content)
         }
+    }
+
+    /// Reports the footer controls' frames and whether any two of them collide.
+    ///
+    /// Overlap is the one layout fault that leaves no trace: every constraint can be
+    /// satisfied while two controls sit on top of each other, and AppKit logs nothing —
+    /// a row of controls anchored from the left and from the right with nothing linking
+    /// them simply passes through one another once the strings grow. Comparing frames is
+    /// what turns "the buttons overlap in English" into a number that can be checked
+    /// before and after a fix.
+    private func reportFooterControls(_ content: NSView) {
+        // Direct children only: the row checkboxes live inside the scroll view and would
+        // otherwise be counted as footer controls.
+        let controls = content.subviews.compactMap { $0 as? NSControl }
+        for control in controls {
+            report("[layout] control \(name(of: control)) \(box(control))")
+        }
+        var collisions: [String] = []
+        for i in controls.indices {
+            for j in controls.indices where j > i {
+                let overlap = controls[i].frame.intersection(controls[j].frame)
+                if !overlap.isNull, overlap.width > 0, overlap.height > 0 {
+                    collisions.append("\(name(of: controls[i]))⟷\(name(of: controls[j]))")
+                }
+            }
+        }
+        report("[layout] control overlap = \(!collisions.isEmpty)"
+               + (collisions.isEmpty ? "" : "  ← \(collisions.joined(separator: " "))"))
+    }
+
+    private func name(of control: NSControl) -> String {
+        if let popup = control as? NSPopUpButton {
+            return "popup[\(popup.titleOfSelectedItem ?? "-")]"
+        }
+        if let button = control as? NSButton {
+            return "button[\(button.title)]"
+        }
+        return "\(type(of: control))"
     }
 
     /// Writes a PNG of the main window, rendered straight from the view hierarchy.
@@ -359,31 +402,134 @@ final class Diagnostics {
         // submission, so a shot taken too early shows a window mid-settle — including the
         // "it does not look applied" state that the window is about to correct itself out of.
         after(4.0) { [weak self] in
-            guard let self else { return }
-            guard let window = NSApp.windows.first(where: {
-                $0.isVisible && $0.title == L("window.title")
-            }), let view = window.contentView else {
-                self.report("[shot] no main window; titles=\(NSApp.windows.map(\.title))")
-                return
-            }
-            guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
-                self.report("[shot] could not allocate a bitmap for \(view.bounds)")
-                return
-            }
-            view.cacheDisplay(in: view.bounds, to: rep)
+            self?.writeWindowShot(to: "/tmp/menubarkeeper-window.png")
+        }
+    }
 
-            guard let png = rep.representation(using: .png, properties: [:]) else {
-                self.report("[shot] PNG encoding failed")
+    private func writeWindowShot(to path: String) {
+        let window = NSApp.windows.first { $0.isVisible && $0.title == L("window.title") }
+        guard let view = window?.contentView else {
+            report("[shot] no main window; titles=\(NSApp.windows.map(\.title))")
+            return
+        }
+        guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else {
+            report("[shot] could not allocate a bitmap for \(view.bounds)")
+            return
+        }
+        view.cacheDisplay(in: view.bounds, to: rep)
+
+        guard let png = rep.representation(using: .png, properties: [:]) else {
+            report("[shot] PNG encoding failed")
+            return
+        }
+        do {
+            try png.write(to: URL(fileURLWithPath: path))
+            report("[shot] wrote \(path) \(rep.pixelsWide)×\(rep.pixelsHigh)")
+        } catch {
+            report("[shot] write failed: \(error.localizedDescription)")
+        }
+    }
+
+    /// Opens and closes the system section and reports what the list did.
+    ///
+    /// The section is presentational — nothing is submitted to the system — but "the group
+    /// did not open" is invisible in a frame dump of a window whose rows all live in one
+    /// list, and a row can be un-hidden, laid out correctly and still sit below the fold.
+    /// This drives the real control through its target/action and reports the row counts
+    /// plus whether the section ends up on screen.
+    private func runSectionCheck() {
+        delegate.showMainWindow()
+        after(2.2) { [weak self] in
+            guard let self,
+                  let window = NSApp.windows.first(where: {
+                      $0.isVisible && $0.title == L("window.title")
+                  }),
+                  let content = window.contentView,
+                  let button = self.sectionHeader(in: content) else {
+                self?.report("[section] no disclosure header found, skipping")
                 return
             }
-            let path = "/tmp/menubarkeeper-window.png"
-            do {
-                try png.write(to: URL(fileURLWithPath: path))
-                self.report("[shot] wrote \(path) \(rep.pixelsWide)×\(rep.pixelsHigh)")
-            } catch {
-                self.report("[shot] write failed: \(error.localizedDescription)")
+            self.report("[section] before: \(self.sectionState(in: content)) "
+                        + "header frame=\(button.frame)")
+
+            // `performClick` rather than a posted mouse click: a click goes to whatever
+            // window is frontmost at those coordinates, and a probe running in the
+            // background has no way to guarantee that is this one — the app can be behind
+            // the window the user is working in. This still runs the real target/action
+            // path, which is the part that can break. Coordinates are only trustworthy for
+            // a window the probe itself just brought to the front.
+            button.performClick(nil)
+            self.after(0.7) {
+                self.report("[section] after click 1: \(self.sectionState(in: content))  ← expect 4 more shown")
+                self.reportRowColumns(in: content)
+                self.writeWindowShot(to: "/tmp/menubarkeeper-window-expanded.png")
+                button.performClick(nil)
+                self.after(0.7) {
+                    self.report("[section] after click 2: \(self.sectionState(in: content))  ← expect back to 4 hidden")
+                }
             }
         }
+    }
+
+    /// The section header, found by identifier.
+    private func sectionHeader(in view: NSView) -> NSButton? {
+        if let button = view as? NSButton,
+           button.identifier?.rawValue == "systemSectionHeader" {
+            return button
+        }
+        for sub in view.subviews {
+            if let found = sectionHeader(in: sub) { return found }
+        }
+        return nil
+    }
+
+    private func sectionState(in content: NSView) -> String {
+        guard let stack = listStack(in: content),
+              let scroll = firstDescendant(of: content, as: NSScrollView.self),
+              let document = scroll.documentView else { return "no list" }
+        let rows = stack.arrangedSubviews.compactMap { $0 as? AppRowView }
+        let shown = rows.filter { !$0.isHidden }.count
+        // Whether the last row is on screen, measured against the part of the document the
+        // scroll view is actually showing. Converting a row into the clip view does *not*
+        // account for the scroll offset — a row reported at 560..604 with a 433 pt viewport
+        // looked off-screen while the window was showing it.
+        let visibleRect = scroll.contentView.documentVisibleRect
+        let last = rows.last.map { $0.convert($0.bounds, to: document) }
+        let lastVisible = last.map { visibleRect.intersects($0) } ?? false
+        return "rows=\(rows.count) shown=\(shown) hidden=\(rows.count - shown) "
+            + "document=\(Int(document.frame.height)) "
+            + "showing=\(Int(visibleRect.minY))..\(Int(visibleRect.maxY)) "
+            + "lastRowAt=\(last.map { String(format: "%.0f..%.0f", $0.minY, $0.maxY) } ?? "-") "
+            + "lastRowVisible=\(lastVisible)"
+    }
+
+    /// Reports the x of the count label in a row of each kind.
+    ///
+    /// The two sections share one list, so their counts have to sit in the same column.
+    /// A row without a checkbox has to reserve that column, and "reserved" is only correct
+    /// if the numbers line up — which is a measurement, not an assumption.
+    private func reportRowColumns(in content: NSView) {
+        guard let stack = listStack(in: content) else { return }
+        let rows = stack.arrangedSubviews.compactMap { $0 as? AppRowView }
+        for (kind, row) in [("foldable", rows.first { $0.entry.canFold }),
+                            ("locked", rows.first { !$0.entry.canFold })] {
+            guard let row else { continue }
+            // The inner stack holds the icon, the (nested) title stack, the count label and
+            // the checkbox-or-spacer. Only the count label is a direct text field.
+            let pieces = row.subviews.first?.subviews ?? []
+            guard let count = pieces.compactMap({ $0 as? NSTextField }).first else {
+                report("[section] \(kind) row: no count label")
+                continue
+            }
+            report("[section] \(kind) row count label at x=\(count.frame.origin.x) "
+                   + "right=\(count.frame.maxX) pieces=\(pieces.count)")
+        }
+    }
+
+    private func listStack(in content: NSView) -> NSStackView? {
+        guard let scroll = firstDescendant(of: content, as: NSScrollView.self),
+              let document = scroll.documentView else { return nil }
+        return document.subviews.first(where: { $0 is NSStackView }) as? NSStackView
     }
 
     private func box(_ view: NSView) -> String {
@@ -407,8 +553,11 @@ final class Diagnostics {
         DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: body)
     }
 
-    /// Posts a synthetic mouse click. `point` uses AppKit's bottom-left origin, which
-    /// is converted to the top-left origin CGEvent expects.
+    /// Posts a synthetic mouse click. `point` is in AppKit **screen** coordinates with a
+    /// bottom-left origin — which is what `NSWindow.convertPoint(toScreen:)` returns, and
+    /// *not* what a view's frame is in. The conversion to the top-left origin CGEvent
+    /// expects is why passing a window-local point looks like it works on a window parked
+    /// in the top-left corner of the screen and fails anywhere else.
     private func click(at point: NSPoint, rightButton: Bool = false) {
         guard let source = CGEventSource(stateID: .combinedSessionState) else { return }
         let top = NSScreen.screens.first?.frame.maxY ?? 0

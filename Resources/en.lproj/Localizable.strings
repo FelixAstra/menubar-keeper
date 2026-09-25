@@ -81,6 +81,9 @@
 "window.hint" = "Selecting a row hides that app's icon right away; deselecting puts it back and keeps it out of the next launch's scan. Use \"Show all\" to take a look.";
 "window.empty" = "No app is currently using the menu bar.\nIf MenuBarKeeper is already ticked in System Settings, quit and reopen it, then try again.";
 
+"window.system.header" = "System items (%d) — never hidden";
+"window.system.tooltip" = "The system's own menu bar items — Wi-Fi, battery, clock, the input menu and the rest — plus MenuBarKeeper itself. macOS manages these, so they cannot be folded, and they are listed separately for that reason.";
+
 "window.autoCollapse" = "Detect and hide on launch";
 "window.autoCollapse.tooltip" = "On by default. At startup MenuBarKeeper scans the menu bar and hides every app on it that can be hidden. An app you restore by hand stays out — the next scan will not hide it again.";
 
@@ -99,8 +102,8 @@
 "row.meta.one" = "1 icon";
 "row.meta.many" = "%d icons";
 "row.checkbox.tooltip" = "Select to move this app's menu bar icon into the hidden area";
-"row.checkbox.tooltip.locked" = "System component or MenuBarKeeper itself — never hidden";
 "row.tooltip" = "Click anywhere on the row to select or deselect";
+"row.tooltip.locked" = "System item or MenuBarKeeper itself — never hidden";
 "row.subtitle.self" = "%@ · MenuBarKeeper itself, never hidden";
 "row.subtitle.system" = "%@ · system component, never hidden";
 

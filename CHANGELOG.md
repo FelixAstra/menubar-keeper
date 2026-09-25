@@ -6,6 +6,27 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **Two footer controls overlapped in English.** *Refresh* and the language picker were drawn
+  on top of each other, by 29 pt on a 620 pt window. The row was anchored from both edges —
+  the checkbox and the picker from the left, the buttons from the right — with nothing
+  linking the two groups, and nothing in Auto Layout objects to two views occupying the same
+  space. English is where it showed: *Detect and hide on launch*, the picker and three
+  buttons need about 617 pt of the 588 pt available. The footer is now two rows, preferences
+  above actions, and each row carries a request that the groups cannot meet
+  (`trailing ≤ leading`), so a longer translation has to shorten a label instead of
+  overlapping one. The two labels that can afford it — the checkbox and *Refresh* — drop
+  their compression resistance and truncate, and both already have tooltips.
+- **The app list showed rows that could not be used.** System items (input menu, Siri,
+  SystemUIServer) and MenuBarKeeper itself were listed with everything else, each with a
+  disabled checkbox, so the list mixed things you can hide with things that are fixed and
+  reported a count that included both. They now live in a *System items (N) — never hidden*
+  section behind a disclosure at the end of the list, opening it scrolls it into view, and
+  those rows carry no checkbox at all — a disabled one still reads as "click here to hide
+  this", which is the one thing the row cannot do. The count column stays aligned across
+  both sections.
+
 ### Added
 
 - **Automatic detection on launch.** The app now scans the menu bar when it starts and hides
@@ -59,6 +80,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   renders the window straight from the view hierarchy to `/tmp/menubarkeeper-window.png`
   without needing Screen Recording permission. Both found defects that looked like nothing
   at all on screen — eleven rows on one set of coordinates draw as one row.
+- `layoutdump` also compares the footer controls' frames against each other and reports
+  whether any two of them collide. That is the only way to catch the overlap above: every
+  constraint is satisfied while two buttons sit on top of one another, and nothing is
+  logged. A new `sectiontest` probe opens and closes the system section for real and reports
+  the row counts and whether the section ends up on screen — "the group did not open" is
+  invisible in a dump of a window whose rows all live in one list.
 - The README's imagery is rendered rather than screen-captured, and its generator lives
   in [`tools/demo`](tools/demo): a menu bar banner that shows the floating bar in place,
   and a walkthrough animation covering selection, hiding, revealing, the per-icon context
