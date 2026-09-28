@@ -53,8 +53,9 @@ distribution channel and removes the quarantine dance entirely.
   `--font-render-hinting=none`) and re-checking that the committed assets still look right.
 - The release workflow now refuses to publish when the tag disagrees with `VERSION`. Anything
   else that derives from `VERSION` should get the same treatment.
-- No contributor scaffolding (issue templates, `CONTRIBUTING.md`). Worth adding only if the
-  project takes contributions.
+- `CONTRIBUTING.md` exists now that the project takes contributions. Issue templates and a
+  pull request template are still missing — worth adding once the issue tracker starts
+  carrying real reports.
 
 ## What cannot be fixed
 
