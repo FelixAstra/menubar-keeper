@@ -82,7 +82,8 @@ Two details worth knowing before changing anything:
 | `wallpaper.jpg` | Generated for this demo — no third-party imagery |
 | `pill.png` | Copy of `Resources/MenuBarTemplate@2x.png`, the shipping menu bar icon |
 | `appicon.png` | Extracted from `Resources/MenuBarKeeper.icns` |
-| `daisy-hidden.png`, `daisy-visible.png`, `trowel.png` | Copies of the matching `Resources/*@2x.png` — the row's state mark and the swap under the pointer |
+| `daisy-hidden.png`, `daisy-visible.png` | Rendered through `AppIcons.daisy` under the light appearance, at the 64 px square the `Resources/*@2x.png` copies are — so the walkthrough shows the row mark a light window actually draws, edge and all |
+| `trowel.png` | Copy of `Resources/RestoreTrowel@2x.png` — the swap under the pointer |
 
 The demo shows the mark the app ships with, which is why the menu bar here wears the capsule:
 the garden daisies are an optional menu bar style (`MenuBarIconStyle`, picked in the window)

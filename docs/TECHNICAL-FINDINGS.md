@@ -215,6 +215,18 @@ thread is parked inside the menu's event tracking.
   the daisy unconditionally — an upgrade repainted everybody's menu bar, which no optional
   appearance change should ever do. The rule that survives: never communicate state through
   `alphaValue`, and never put two states that differ only by colour into a template image.
+- **A full-colour icon can be present, correctly sized, and still invisible.** The daisies are
+  white-petalled artwork drawn for a dark menu bar. On a light one the petals are the same colour
+  as the bar, so the mark collapsed to a floating orange dot — and every check here reported it as
+  fine, because size, template flag and representation list all genuinely were. The treatment is
+  applied at *draw* time, keyed on `NSAppearance.currentDrawing()`: on a light bar the artwork is
+  drawn over a silhouette of itself offset ±0.45 pt and layered enough times for the translucent
+  sleeping artwork to read, while a dark bar draws the artwork untouched. It has to be read at
+  draw time rather than baked at load time, because the status item is handed one `NSImage` and it
+  is the *bar* that changes, not the app, so a cached rendering would keep wearing whichever bar
+  it was first painted for. That is also why `iconstylecheck` counts pixels instead of describing
+  the image: "the mark is in the bundle, at the right size, in full colour" and "the mark can be
+  seen" are two different claims, and only the pixels answer the second.
 - **Sizing**: menu bar assets are specified in points (the capsule is `44 × 18`, the daisy
   is an 18 pt square) with an `@2x` variant for Retina. The two have different aspect ratios,
   which is why the picker's thumbnails are normalised by *height*: letting each mark keep its

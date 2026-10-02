@@ -4,6 +4,35 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.1] - 2026-10-02
+
+### Fixed
+
+- **The state daisy was invisible on a light menu bar.** Its petals are white, and a light menu
+  bar is white too, so on that bar the mark collapsed to a floating orange dot — the petals, and
+  with them the shape that reads as a daisy, were not there. The artwork is now drawn with a thin
+  edge, and the sleeping state, whose artwork is deliberately translucent, is layered until its
+  grey reads; both are keyed on the appearance the image is drawn into, so a dark menu bar gets
+  the original artwork untouched. The row mark and the style picker's thumbnail come through the
+  same call and had the same problem on a light row, for the same reason.
+- `iconstylecheck` measures that now. Size, template flag and representation list all reported the
+  daisy as fine while it was disappearing — and they *were* fine, which is the point: nothing this
+  file could see was wrong with it. So the probe draws the mark into a bitmap under each menu bar
+  appearance, over that bar's own background, and reports the share of it that differs from the
+  bar by enough to be seen. Both bars are measured, because only one of them ever had the problem
+  and getting the other one wrong would be just as invisible.
+- `tools/demo`'s npm scripts had drifted from the renderer they call: `render` asked for 13200 ms
+  of a 13400 ms walkthrough, and `assets` and `banner` wrote to `../docs/images`, one level short
+  of the directory the README reads from. `ffmpeg` creates the missing directory and says nothing,
+  so regenerating would have written the walkthrough to `tools/docs/images` — output nothing
+  reads, from a command that reports success.
+
+### Changed
+
+- The walkthrough's row marks are drawn through `AppIcons.daisy` rather than copied out of
+  `Resources/`, so the animation shows the mark a light window actually puts in a row. The copies
+  it used until now carried the same washed-out petals the app carried.
+
 ## [1.5.0] - 2026-09-26
 
 ### Added
@@ -289,6 +318,7 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.5.1]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.1
 [1.5.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.0
 [1.4.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.4.0
 [1.3.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.3.0

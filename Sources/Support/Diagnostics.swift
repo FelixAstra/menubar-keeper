@@ -174,9 +174,17 @@ final class Diagnostics {
     /// nothing but a 1× representation, a daisy flattened by template recolouring, and an
     /// asset that never reached the bundle at all. Reporting them separately is what makes
     /// the output tell those apart instead of just saying "an image exists".
+    ///
+    /// An empty `reps` is not one of those failures: it means a drawn image, which has no
+    /// bitmap to inspect. `AppIcons.daisy` is drawn, so it reports empty — and its pixels are
+    /// covered by `reportDaisyContrast` instead. Only a *positive* pixel size counts as a
+    /// representation here, because the alternative is printing `0×0px` for an image that is
+    /// working perfectly and reading exactly like the failure this line exists to catch.
     private func describe(_ image: NSImage?) -> String {
         guard let image else { return "nil" }
-        let reps = image.representations.map { "\($0.pixelsWide)×\($0.pixelsHigh)px" }
+        let reps = image.representations
+            .filter { $0.pixelsWide > 0 }
+            .map { "\($0.pixelsWide)×\($0.pixelsHigh)px" }
         return "\(image.size.width)×\(image.size.height)pt template=\(image.isTemplate) "
             + "reps=[\(reps.joined(separator: ","))]"
     }
@@ -194,6 +202,10 @@ final class Diagnostics {
     /// The stored value is restored exactly as found — including removing the key when it
     /// was absent, which is the state a fresh install is in and the one that has to keep
     /// resolving to the brand capsule.
+    ///
+    /// It also measures the daisy's pixels on each menu bar, because everything else in this
+    /// file reports that the mark is *there* — size, template flag, representations — and the
+    /// daisy was invisible on a light bar with all three of them reading "fine".
     private func runIconStyleCheck() {
         guard claim("iconstylecheck") else { return }
         let defaults = UserDefaults.standard
@@ -216,6 +228,7 @@ final class Diagnostics {
                         + "items=\(picker.itemTitles) selected=\(picker.indexOfSelectedItem) "
                         + "button=\(self.describe(picker.image)) "
                         + "statusItem=\(self.describe(self.delegate.statusItemImage))")
+            self.reportDaisyContrast()
 
             /// Runs an item's own target/action — exactly what AppKit does on a click, rather
             /// than a shortcut past the wiring this probe exists to check.
@@ -255,6 +268,76 @@ final class Diagnostics {
                         + "picker.button=\(self.describe(picker.image)) "
                         + "statusItem=\(self.describe(self.delegate.statusItemImage))")
         }
+    }
+
+    /// Measures how much of the state daisy actually reads, in each menu bar appearance.
+    ///
+    /// A daisy can be present, correctly sized, full colour — and invisible. Its petals are
+    /// white and a light menu bar is white too, so on that bar the mark collapsed to a
+    /// floating orange dot and the shape that makes it a daisy simply was not there. Size,
+    /// template flag and representation list all said "fine", which is exactly the problem:
+    /// they *were* fine. The pixels were not.
+    ///
+    /// So this draws the mark the way the menu bar will — into a bitmap, under that bar's
+    /// appearance, over that bar's background — and counts the pixels that differ from the
+    /// background enough to be seen. Both bars are measured, since only one of them ever had
+    /// the problem, and getting the other one wrong would be just as invisible.
+    private func reportDaisyContrast() {
+        // RGB, not `calibratedWhite`: a greyscale colour has no `redComponent`, and reading
+        // one raises rather than returning zero. It is a crash, not a wrong number.
+        let bars: [(NSAppearance.Name, String, NSColor)] = [
+            (.aqua, "light", NSColor(calibratedRed: 0.97, green: 0.97, blue: 0.97, alpha: 1)),
+            (.darkAqua, "dark", NSColor(calibratedRed: 0.11, green: 0.11, blue: 0.11, alpha: 1)),
+        ]
+        for (appearance, barName, bar) in bars {
+            for folded in [true, false] {
+                let share = daisyVisibleShare(folded: folded, appearance: appearance, bar: bar)
+                report("[iconstyle] daisy \(folded ? "folded" : "visible") on the \(barName) bar: "
+                       + "\(share) of the mark reads")
+            }
+        }
+    }
+
+    /// The share of a mark's pixels that are distinguishable from `bar`, drawn under `appearance`.
+    private func daisyVisibleShare(folded: Bool, appearance: NSAppearance.Name,
+                                   bar: NSColor) -> String {
+        let side = 36
+        let points: CGFloat = 18
+        guard let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: side, pixelsHigh: side,
+                                         bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
+                                         isPlanar: false, colorSpaceName: .deviceRGB,
+                                         bytesPerRow: 0, bitsPerPixel: 0),
+              let image = AppIcons.daisy(folded: folded, size: points) else { return "n/a" }
+        rep.size = NSSize(width: points, height: points)
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        NSAppearance(named: appearance)?.performAsCurrentDrawingAppearance {
+            bar.setFill()
+            NSBezierPath(rect: NSRect(x: 0, y: 0, width: points, height: points)).fill()
+            image.draw(in: NSRect(x: 0, y: 0, width: points, height: points))
+        }
+        NSGraphicsContext.restoreGraphicsState()
+
+        guard let data = rep.bitmapData, let barRGB = bar.usingColorSpace(.deviceRGB) else {
+            return "n/a"
+        }
+        let barLuma = 0.299 * barRGB.redComponent
+            + 0.587 * barRGB.greenComponent
+            + 0.114 * barRGB.blueComponent
+        var visible = 0
+        for y in 0..<side {
+            for x in 0..<side {
+                let p = y * rep.bytesPerRow + x * 4
+                let luma = 0.299 * Double(data[p]) / 255
+                    + 0.587 * Double(data[p + 1]) / 255
+                    + 0.114 * Double(data[p + 2]) / 255
+                let alpha = Double(data[p + 3]) / 255
+                // Composited over the bar, because that is what the eye is given.
+                let over = luma * alpha + barLuma * (1 - alpha)
+                if abs(over - barLuma) > 0.15 { visible += 1 }
+            }
+        }
+        return String(format: "%.1f%%", 100 * Double(visible) / Double(side * side))
     }
 
     // MARK: - Row state control

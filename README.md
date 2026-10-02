@@ -20,7 +20,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 
 ## What it does
 
-<img src="docs/images/demo.gif?v=8" alt="Walkthrough: click the daisy at the end of each row in the MenuBarKeeper window and those apps' icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
+<img src="docs/images/demo.gif?v=9" alt="Walkthrough: click the daisy at the end of each row in the MenuBarKeeper window and those apps' icons leave the menu bar; click the menu bar icon and they drop down beneath it; right-click one to put it back; click again and everything is restored" width="100%">
 
 <sub>[demo.mp4](docs/images/demo.mp4) — the same walkthrough without GIF dithering.</sub>
 
@@ -31,7 +31,7 @@ Grab the disk image: **[MenuBarKeeper.dmg](https://github.com/FelixAstra/menubar
 | **Reach** | Click the menu bar icon and the hidden ones drop down right underneath it |
 | **Act** | Click a hidden icon to open that app's own menu; right-click it to open, quit, or send it back |
 | **Undo** | *Show all* restores everything; quitting the app always does too |
-| **Style** | Your call: the menu bar wears the brand capsule, or a daisy that follows the state |
+| **Style** | Your call: the menu bar wears the brand capsule, or a daisy that follows the state and draws itself for a light or a dark bar |
 
 Hidden apps keep running. Only the icon goes away — and the daisy beside each app in the list
 says which state it is in at a glance: **coloured and smiling** while it is folded away, **grey

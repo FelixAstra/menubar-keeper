@@ -10,8 +10,9 @@ import AppKit
 /// that design is the colour — a **coloured, smiling** daisy when icons are folded away,
 /// a **grey, sleeping** one when everything is on the bar. That distinction cannot survive
 /// template recolouring (both would become the same monochrome shape), so the daisies load
-/// as ordinary full-colour images. They were drawn for a menu bar: white petals read on
-/// dark, and the grey stays legible on light.
+/// as ordinary full-colour images. Their white petals need a subtle outline against a
+/// light menu bar; the sleeping artwork also needs more opacity there. Both treatments
+/// are applied at draw time so the original artwork stays intact on dark backgrounds.
 ///
 /// Which one is drawn is the user's call — see `MenuBarIconStyle`. The capsule is the
 /// default, so an install that never touches the control looks exactly as it did before
@@ -82,7 +83,47 @@ enum AppIcons {
     /// Full colour on purpose — see the type's header for why these are never
     /// template images.
     static func daisy(folded: Bool, size: CGFloat = daisySize) -> NSImage? {
-        loadArtwork(named: folded ? "DaisyHidden" : "DaisyVisible", size: size)
+        guard let artwork = loadArtwork(named: folded ? "DaisyHidden" : "DaisyVisible", size: size) else {
+            return nil
+        }
+        let image = NSImage(size: artwork.size, flipped: false) { rect in
+            let appearance = NSAppearance.currentDrawing()
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            if !isDark {
+                // A thin sticker-like edge preserves the original petal shape and smile.
+                // The sleeping PNG is intentionally translucent; layering it on light
+                // backgrounds makes its grey readable without changing its colour.
+                let passes = folded ? 1 : 3
+                let silhouette = NSImage(size: artwork.size, flipped: false) { bounds in
+                    for _ in 0..<passes {
+                        artwork.draw(in: bounds, from: .zero, operation: .sourceOver, fraction: 1)
+                    }
+                    if let context = NSGraphicsContext.current?.cgContext {
+                        context.saveGState()
+                        context.setBlendMode(.sourceIn)
+                        context.setFillColor(NSColor(calibratedRed: 0.39, green: 0.45, blue: 0.51,
+                                                     alpha: folded ? 0.72 : 0.86).cgColor)
+                        context.fill(bounds)
+                        context.restoreGState()
+                    }
+                    return true
+                }
+                let edge: CGFloat = 0.45
+                for offset in [NSPoint(x: edge, y: 0), NSPoint(x: -edge, y: 0),
+                               NSPoint(x: 0, y: edge), NSPoint(x: 0, y: -edge)] {
+                    silhouette.draw(in: rect.offsetBy(dx: offset.x, dy: offset.y),
+                                    from: .zero, operation: .sourceOver, fraction: 1)
+                }
+                for _ in 0..<passes {
+                    artwork.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+                }
+            } else {
+                artwork.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+            }
+            return true
+        }
+        image.isTemplate = false
+        return image
     }
 
     /// The garden trowel, marking the actions that put an app back on the menu bar.
