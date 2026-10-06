@@ -61,6 +61,18 @@ final class KeeperWindowController: NSObject {
     private let refreshButton = NSButton(title: "", target: nil, action: nil)
     private let restoreButton = NSButton(title: "", target: nil, action: nil)
     private let collapseButton = NSButton(title: "", target: nil, action: nil)
+    /// Takes the user to `/Applications`, which is the only place auto-fold runs.
+    ///
+    /// The launch scan skips itself when the app runs from anywhere else — see
+    /// `FoldController.prepareOnLaunch` — and that skip used to be invisible: the mechanism
+    /// label warned about the icon, never about the scan. This is the one-click way out, and
+    /// it only appears when it is the answer.
+    ///
+    /// Collapsed to zero width rather than pulled out of the layout. The footer is a chain of
+    /// hand-written constraints anchored from both edges, and removing a link from it for a
+    /// state the user may never leave would mean two shapes of the same row.
+    private let moveToApplicationsButton = NSButton(title: "", target: nil, action: nil)
+    private var moveToApplicationsWidth: NSLayoutConstraint!
     /// Chooses which mark the menu bar wears — the brand capsule or the state daisy.
     ///
     /// A pull-down rather than a segmented control: the two options are pictures, and a
@@ -172,7 +184,11 @@ final class KeeperWindowController: NSObject {
 
         mechanismLabel.font = .systemFont(ofSize: 10.5)
         mechanismLabel.textColor = .secondaryLabelColor
-        mechanismLabel.lineBreakMode = .byTruncatingTail
+        // Two lines, and the break mode has to agree with that. `byTruncatingTail` draws the
+        // sentence once and clips the rest, so `maximumNumberOfLines` was describing a second
+        // line this label never actually rendered — which only showed up when the
+        // "not in /Applications" text grew long enough to need it.
+        mechanismLabel.lineBreakMode = .byWordWrapping
         mechanismLabel.maximumNumberOfLines = 2
 
         summaryLabel.font = .systemFont(ofSize: 10.5)
@@ -255,6 +271,16 @@ final class KeeperWindowController: NSObject {
         restoreButton.toolTip = L("window.expandAll")
         collapseButton.bezelStyle = .rounded
         collapseButton.keyEquivalent = "\r"
+        moveToApplicationsButton.bezelStyle = .rounded
+        // `small`, so the button fits inside the two lines the warning can occupy. A regular
+        // one is 30 pt against a 13 pt line, and aligning its baseline to the text pushed its
+        // top up into the title row — where it sat on top of the language tab.
+        moveToApplicationsButton.controlSize = .small
+        // Zero while the app is where it belongs — the flag is flipped in `syncControls`, so
+        // the row is one shape with the button and one shape without it, and the chain of
+        // constraints below never has to be torn down and rebuilt.
+        moveToApplicationsWidth = moveToApplicationsButton.widthAnchor.constraint(equalToConstant: 0)
+        moveToApplicationsWidth.isActive = true
 
         // The footer's labels give way before its controls do. Two groups are anchored from
         // opposite edges of one row — the launch checkbox from the left, the three buttons
@@ -266,6 +292,15 @@ final class KeeperWindowController: NSObject {
             label.cell?.lineBreakMode = .byTruncatingTail
             label.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
         }
+
+        // The move button shares the warning line, so it has to win the width it needs there.
+        // A text field's compression resistance is 750; at the default 250 this button lost
+        // that contest outright and was squeezed flat, which left the sentence running the
+        // full width with no button beside it. `defaultHigh` puts it just above the label, and
+        // the zero-width constraint that hides it sits at `required`, so that still wins
+        // whenever the button is meant to be gone.
+        moveToApplicationsButton.setContentCompressionResistancePriority(.defaultHigh,
+                                                                        for: .horizontal)
 
         systemHeaderButton.isBordered = false
         systemHeaderButton.alignment = .left
@@ -356,8 +391,8 @@ final class KeeperWindowController: NSObject {
         guard let content = window.contentView else { return }
         let allViews: [NSView] = [
             brandIcon, stateLabel, mechanismLabel, summaryLabel, scrollView, hintLabel,
-            autoCollapseCheckbox, iconStylePicker, languageTabs, refreshButton, restoreButton,
-            collapseButton,
+            autoCollapseCheckbox, iconStylePicker, languageTabs, moveToApplicationsButton,
+            refreshButton, restoreButton, collapseButton,
         ]
         for view in allViews {
             view.translatesAutoresizingMaskIntoConstraints = false
@@ -395,8 +430,19 @@ final class KeeperWindowController: NSObject {
                                                 constant: Metrics.lineSpacing),
             mechanismLabel.leadingAnchor.constraint(equalTo: content.leadingAnchor,
                                                     constant: Metrics.padding),
-            mechanismLabel.trailingAnchor.constraint(equalTo: content.trailingAnchor,
-                                                     constant: -Metrics.padding),
+            mechanismLabel.trailingAnchor.constraint(equalTo: moveToApplicationsButton.leadingAnchor,
+                                                     constant: -Metrics.iconStyleGap),
+
+            // The warning and the way out of it share a line, because they are one thought.
+            // At zero width — every case but one — the label simply gets back the plain
+            // trailing margin it always had.
+            moveToApplicationsButton.trailingAnchor.constraint(equalTo: content.trailingAnchor,
+                                                               constant: -Metrics.padding),
+            // Top-aligned rather than baseline-aligned: the button is taller than a line of
+            // this label, so matching baselines lifts its top out of the label entirely and
+            // into the title row above. Pinned to the top it stays inside the two lines the
+            // label can take, and grows only downwards.
+            moveToApplicationsButton.topAnchor.constraint(equalTo: mechanismLabel.topAnchor),
 
             summaryLabel.topAnchor.constraint(equalTo: mechanismLabel.bottomAnchor,
                                               constant: Metrics.lineSpacing),
@@ -474,6 +520,8 @@ final class KeeperWindowController: NSObject {
         restoreButton.action = #selector(restoreClicked)
         collapseButton.target = self
         collapseButton.action = #selector(collapseClicked)
+        moveToApplicationsButton.target = self
+        moveToApplicationsButton.action = #selector(moveToApplicationsClicked)
         systemHeaderButton.target = self
         systemHeaderButton.action = #selector(systemSectionToggled)
     }
@@ -688,6 +736,12 @@ final class KeeperWindowController: NSObject {
         refreshAfterSystemApplies()
     }
 
+    /// The same flow the menu bar menu offers, run through the same method — the alert that
+    /// spells out what will happen belongs in one place, not two.
+    @objc private func moveToApplicationsClicked() {
+        (NSApp.delegate as? AppDelegate)?.moveToApplications()
+    }
+
     /// Opens or closes the system section. Purely presentational — nothing here is ever
     /// submitted to the system — so there is no rescan to follow it.
     @objc private func systemSectionToggled() {
@@ -773,6 +827,7 @@ final class KeeperWindowController: NSObject {
         autoCollapseCheckbox.title = L("window.autoCollapse")
         autoCollapseCheckbox.isEnabled = usable
         autoCollapseCheckbox.state = fold.collapsesOnLaunch ? .on : .off
+        syncMoveToApplicationsButton()
         applyLanguageSelection()
         syncIconStylePicker()
     }
@@ -804,15 +859,30 @@ final class KeeperWindowController: NSObject {
         iconStylePicker.toolTip = L("window.iconStyle.tooltip", L(style.localizationKey))
     }
 
+    /// Shows the escape hatch only when it is the answer.
+    ///
+    /// Zero width as well as hidden: a hidden view still occupies its frame under
+    /// hand-written constraints, and the footer's two groups are kept apart by a single
+    /// `lessThanOrEqualTo`. Collapsing it is what makes "not shown" mean "takes no room".
+    private func syncMoveToApplicationsButton() {
+        let needsMoving = !Installation.isInApplications
+        moveToApplicationsButton.title = L("window.moveToApplications")
+        moveToApplicationsButton.toolTip = L("window.moveToApplications.tooltip")
+        moveToApplicationsButton.isHidden = !needsMoving
+        moveToApplicationsWidth.isActive = !needsMoving
+    }
+
     /// Reports what the hiding mechanism is doing, in priority order. The verification
     /// branch is the interesting one: after collapsing, the selected apps should have
     /// disappeared from the accessibility tree. Checking that gives a conclusion without
     /// relying on the user's eyes, so a silent failure becomes a visible one.
     private func updateMechanismLabel(_ fold: FoldController) {
         if !Installation.isInApplications {
-            // Highest priority: running from outside /Applications means the app's own
-            // icon gets hidden too, and the user loses their controls. That is worth
-            // saying before anything else.
+            // Highest priority, and it is two failures in one sentence: outside /Applications
+            // the launch scan skips itself *and* the app's own icon gets swept away with the
+            // rest, so the user loses their controls. The first of those two is what this
+            // label never used to say — the scan's skip only ever reached the debug log, which
+            // is why "auto-fold does nothing" was unanswerable from the window.
             mechanismLabel.stringValue = L("window.notInApplications")
             mechanismLabel.textColor = .systemOrange
             return

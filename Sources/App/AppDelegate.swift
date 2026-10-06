@@ -246,8 +246,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     ///
     /// This is functional, not housekeeping: the system only protects the menu bar icon of
     /// an app installed in a standard location. Run from the Desktop, the app's own icon
-    /// is hidden along with everything else and the user loses their controls.
-    @objc private func moveToApplications() {
+    /// is hidden along with everything else and the user loses their controls — and the
+    /// launch scan skips itself, so nothing is ever folded automatically.
+    ///
+    /// Not `private`: the main window puts a button on this same flow, so the alert that
+    /// explains the move is written once.
+    @objc func moveToApplications() {
         let alert = NSAlert()
         alert.messageText = L("alert.move.title")
         alert.informativeText = L("alert.move.body")
