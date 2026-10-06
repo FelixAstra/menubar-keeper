@@ -2,7 +2,7 @@
 
 **Hide the menu bar icons you don't need — and get them back with one click.**
 
-[**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+ · MIT · English / 简体中文 · [What's new](CHANGELOG.md)
+[**Download**](https://github.com/FelixAstra/menubar-keeper/releases/latest/download/MenuBarKeeper.dmg) · macOS 14+, icon hiding needs macOS 27 · MIT · English / 简体中文 · [What's new](CHANGELOG.md)
 
 <img src="docs/images/menu-bar.png?v=6" alt="A macOS menu bar with MenuBarKeeper's capsule icon beside the clock, and the apps it hides listed in a bar directly underneath" width="100%">
 
@@ -47,7 +47,8 @@ without you picking anything. Anything you send back stays back: the release is 
 no later scan will hide that app again. Unchecking *Detect and hide on launch* in the window
 stops the scan, leaving only the apps you hid by hand.
 
-The scan is skipped if the app is not running from `/Applications` — see below.
+The scan is skipped if the app is not running from `/Applications`; the window says so, and
+offers to move the app — see below.
 
 ## Usage
 
@@ -75,7 +76,11 @@ back to bringing the app forward — weaker than what was asked for, but never a
 
 macOS only honours a status item from an app installed in `/Applications`. Run the app from
 anywhere else and **its own icon gets hidden along with the others**, leaving no way back.
-The app detects this and offers to move itself; the build script installs there by default.
+This is also the one place auto-fold is skipped, so a copy run from a checkout will not hide
+anything on launch — silently, which is what it used to be.
+
+The window now names both costs on its warning line and puts **Move to Applications…** beside it;
+the menu bar menu carries the same item, and the build script installs there by default.
 
 ## Build from source
 
@@ -117,7 +122,12 @@ documents cover the rest:
 - System items (clock, battery, Control Center) are never touched. They are listed in their
   own section at the end of the app list rather than among the apps you can hide.
 - The app is not notarized, so the first launch needs the right-click → Open dance.
-- Tested on macOS 27 with Apple Silicon; the fallback path targets macOS ≤ 26.
+- **Hiding needs macOS 27 or later.** It rests on the assessment-mode assertion that arrived with
+  macOS 27's rebuilt menu bar, where the whole bar is drawn by `MenuBarAgent` as one window. On
+  macOS 26 and earlier the app still lists what occupies the menu bar and which app owns what, but
+  it cannot hide anything — and on 26, System Settings › Menu Bar can switch individual icons off
+  by hand.
+- Built and tested on macOS 27 with Apple Silicon; the macOS ≤ 26 paths are unverified.
 
 ## Localization
 

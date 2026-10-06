@@ -44,7 +44,7 @@
 /* MARK: - Move to /Applications */
 
 "alert.move.title" = "Move to Applications";
-"alert.move.body" = "MenuBarKeeper must run from the Applications folder. Otherwise, once icons are hidden, macOS hides its own menu bar icon too and you lose the only way to control it.\n\nThe app will be copied to /Applications and restarted. Code signing and permission records are independent of the path, so you will not have to grant access again.";
+"alert.move.body" = "MenuBarKeeper must run from the Applications folder. From anywhere else the launch scan skips itself, so nothing is ever folded away automatically — and once icons are hidden, macOS hides the app's own menu bar icon too and you lose the only way to control it.\n\nThe app will be copied to /Applications and restarted. Code signing and permission records are independent of the path, so you will not have to grant access again.";
 "alert.move.confirm" = "Move and Restart";
 "alert.copyFailed.title" = "Could not copy";
 
@@ -70,7 +70,9 @@
 "window.mechanism.rejected" = "⚠︎ The system rejected the last request: %@";
 "window.mechanism.verified" = "✓ Verified — the %d hidden apps are gone from the menu bar (confirmed via the accessibility tree)";
 "window.mechanism.ineffective" = "⚠︎ It does not look applied — %d selected apps are still on the menu bar. Check that Accessibility permission is enabled, then restart MenuBarKeeper.";
-"window.notInApplications" = "⚠︎ MenuBarKeeper is not in the Applications folder — once you hide icons, its own icon is hidden too. Use \"Move to Applications\" from the menu bar menu to fix this.";
+"window.notInApplications" = "⚠︎ Not in the Applications folder — auto-fold is skipped from here, and hiding icons would take its own icon with them.";
+"window.moveToApplications" = "Move to Applications…";
+"window.moveToApplications.tooltip" = "Copy MenuBarKeeper to the Applications folder and restart it — auto-fold starts working there.";
 
 "window.summary.preparing" = "Preparing…";
 "window.summary.scanning" = "Scanning the menu bar…";
@@ -146,7 +148,7 @@
 "error.mechanism.rejected" = "The system rejected the hiding request: %@";
 "error.mechanism.timeout" = "The system did not respond to the hiding request in time";
 
-"reason.unsupportedOS" = "macOS %d does not support hiding menu bar icons";
+"reason.unsupportedOS" = "macOS 27 or later is required — this is macOS %d. On macOS 26, System Settings › Menu Bar can switch icons off one by one";
 "reason.noFramework" = "MenuBarClientCore is not present on this system";
 "reason.noObjectiveC" = "Could not resolve the Objective-C runtime";
 "reason.missingClasses" = "The expected classes were not found in MenuBarClientCore";

@@ -16,9 +16,6 @@ final class FoldController {
 
     static let shared = FoldController()
 
-    /// Folding is only meaningful on systems that provide the mechanism.
-    static var isSupportedBySystem: Bool { MenuBarAgentInventory.isApplicable }
-
     static let ownBundleID = Bundle.main.bundleIdentifier ?? "io.github.felixastra.MenuBarKeeper"
 
     /// A visibility configuration submitted to the system.
@@ -73,12 +70,14 @@ final class FoldController {
     }
 
     /// Why the mechanism is unavailable; nil means it is available.
-    var availabilityMessage: String? {
-        guard Self.isSupportedBySystem else {
-            return L("reason.unsupportedOS", ProcessInfo.processInfo.operatingSystemVersion.majorVersion)
-        }
-        return visibility.unavailableReason
-    }
+    ///
+    /// Answered by the mechanism itself rather than by comparing system versions.
+    /// `MenuBarVisibility.prepare()` already probes the framework, its classes and their
+    /// selectors at run time, and it reports *which* of those is missing — the one part a
+    /// user can act on. A version test layered on top can only replace that answer with a
+    /// guess: it cannot tell a system that never had the framework from one where the load
+    /// failed, and it would refuse a system where the capability is actually present.
+    var availabilityMessage: String? { visibility.unavailableReason }
 
     var isMechanismAvailable: Bool { availabilityMessage == nil }
 

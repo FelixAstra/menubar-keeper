@@ -40,7 +40,7 @@
 /* MARK: - 迁移到 /Applications */
 
 "alert.move.title" = "移到应用程序文件夹";
-"alert.move.body" = "本工具必须从「应用程序」文件夹运行。否则一旦收起，它自己的菜单栏图标会被系统一并隐藏，你将失去唯一的操作入口。\n\n现在会把它复制到 /Applications 并自动重启。签名与授权记录跟路径无关，不需要重新授权。";
+"alert.move.body" = "本工具必须从「应用程序」文件夹运行。从其他位置运行时，启动扫描会跳过 —— 所以不会自动收起任何图标；而且一旦收起，它自己的菜单栏图标也会被系统一并隐藏，你将失去唯一的操作入口。\n\n现在会把它复制到 /Applications 并自动重启。签名与授权记录跟路径无关，不需要重新授权。";
 "alert.move.confirm" = "移到应用程序文件夹并重启";
 "alert.copyFailed.title" = "复制失败";
 
@@ -66,7 +66,9 @@
 "window.mechanism.rejected" = "⚠︎ 上次提交被系统拒绝：%@";
 "window.mechanism.verified" = "✓ 已生效 —— 收起的 %d 个 App 确实已从菜单栏消失（经辅助功能树确认）";
 "window.mechanism.ineffective" = "⚠︎ 看起来没生效 —— %d 个已标记的 App 仍在菜单栏上。请确认辅助功能权限已勾选，并重启本工具后再试。";
-"window.notInApplications" = "⚠︎ 本工具不在「应用程序」文件夹中 —— 收起后它自己的图标也会被一并隐藏。请用菜单栏右键菜单里的「移到应用程序文件夹」修复。";
+"window.notInApplications" = "⚠︎ 本工具不在「应用程序」文件夹 —— 从别处运行会自动跳过收折，收起图标还会把它自己的图标一并带走。";
+"window.moveToApplications" = "移到「应用程序」文件夹…";
+"window.moveToApplications.tooltip" = "把本工具复制到「应用程序」文件夹并重启，自动收折随即生效。";
 
 "window.summary.preparing" = "准备扫描…";
 "window.summary.scanning" = "正在扫描菜单栏…";
@@ -142,7 +144,7 @@
 "error.mechanism.rejected" = "系统拒绝了隐藏请求：%@";
 "error.mechanism.timeout" = "系统未在限定时间内响应隐藏请求";
 
-"reason.unsupportedOS" = "当前系统（macOS %d）不支持菜单栏隐藏";
+"reason.unsupportedOS" = "需要 macOS 27 或更高版本（当前为 macOS %d）。macOS 26 可在「系统设置 › 菜单栏」里逐个关闭图标";
 "reason.noFramework" = "当前系统没有 MenuBarClientCore 框架";
 "reason.noObjectiveC" = "无法解析 Objective-C 运行时";
 "reason.missingClasses" = "MenuBarClientCore 中找不到预期的类";

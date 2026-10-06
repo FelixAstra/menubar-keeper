@@ -11,6 +11,14 @@ account, a Developer ID Application certificate, and a `notarytool` step in
 `.github/workflows/release.yml` (the workflow already produces the DMG that would be
 submitted). Until then the README works around it rather than solving it.
 
+**Icon hiding needs macOS 27.** On macOS 26 and earlier the app lists what occupies the menu
+bar and which app owns what, but it cannot hide anything — the two systems need different
+mechanisms, and only the macOS 27 one is implemented (see TECHNICAL-FINDINGS §1). macOS 26
+does have a built-in answer, so the gap is narrower than it sounds: System Settings › Menu Bar
+can switch individual icons off by hand. It still means a whole release of users install the
+app and find its main feature switched off, which is why the window now names the version and
+points at that setting instead of saying the system is unsupported.
+
 **No Homebrew cask.** Once notarized, `brew install --cask menubar-keeper` is the natural
 distribution channel and removes the quarantine dance entirely.
 

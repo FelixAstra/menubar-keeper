@@ -147,6 +147,12 @@ final class Diagnostics {
         report("[selftest] foldedApps=\(fold.foldedApplications.compactMap(\.bundleIdentifier))")
         report("[selftest] isCollapsed=\(fold.isCollapsed)")
         report("[selftest] mechanismAvailable=\(fold.isMechanismAvailable)")
+        // The reason, and the raw probe behind it. One line answers "why can this machine not
+        // fold?" without a marker file and without guessing at the system version: the reason
+        // says what the app concluded, and the probe says whether the framework is even here.
+        report("[selftest] mechanismReason=\(fold.availabilityMessage ?? "none")")
+        report("[selftest] menuBarClientCore="
+               + (MenuBarVisibility.frameworkIsLoadable ? "loads" : "absent"))
         report("[selftest] axTrusted=\(AccessibilityInventory.isTrusted)")
 
         if let window = delegate.statusItemWindow {

@@ -36,13 +36,32 @@ retracted: the API works, the parameters were wrong.
 > meant anything. Validate the arguments separately, and when there is no effect, suspect
 > your own parameters before concluding the platform is locked down.
 
-### The old trick is genuinely dead
+### The old trick is dead — but only from macOS 27
 
 Growing a separator item until it pushes icons off-screen was the standard approach for
-years. It no longer works: macOS 27 draws the entire menu bar in a single window owned by
-`com.apple.MenuBarAgent`, so there is no per-item window geometry left to manipulate.
+years. Ice, Hidden Bar and Bartender all rest on it; Ice's divider is a status item set to
+10 000 points. It **still works on macOS 26 and earlier**, where every status item is its own
+window, and there it is the only way to hide anything at all.
 
-Icons can only be hidden through the whitelist API.
+It stopped working in macOS 27, which draws the entire menu bar in a single window owned by
+`com.apple.MenuBarAgent`. An oversized item is *discarded* rather than allowed to push its
+neighbours aside, so there is no per-item window geometry left to manipulate.
+
+The two systems therefore need different mechanisms, and they are not interchangeable:
+
+| | macOS 26 and earlier | macOS 27 |
+|---|---|---|
+| Menu bar drawn as | one window per status item | one window, by `MenuBarAgent` |
+| Hiding | an oversized separator pushes icons aside | `MenuBarClientCore` allow-list assertion |
+| Can it target one app? | **no** — a separator has a position, not a name | yes — the request is keyed by bundle identifier |
+| Discovery | each app's own `AXExtrasMenuBar` | `MenuBarAgent`'s accessibility tree |
+
+MenuBarKeeper implements the macOS 27 path only. On 26 the app still lists what occupies the
+menu bar — the discovery path is there and works — but it cannot hide anything, and the window
+says so rather than pretending otherwise. Adding the separator path would be a second
+implementation with **different semantics**: on 26 an app cannot be hidden by name, only
+placed on the far side of a divider, and only by the user, because a third-party process has
+no way to move another app's status item. That is a product decision, not a patch.
 
 ## 2. The old helper-process idea does not work
 

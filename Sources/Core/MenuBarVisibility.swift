@@ -22,6 +22,26 @@ final class MenuBarVisibility {
     static let frameworkPath =
         "/System/Library/PrivateFrameworks/MenuBarClientCore.framework/MenuBarClientCore"
 
+    /// The first macOS that ships the framework.
+    ///
+    /// Consulted only to *explain* a failure, never to decide whether to attempt the load —
+    /// `prepare()` below is the test, and it is a better one. Below this version the
+    /// framework has never existed, so its absence is simply the platform; at or above it,
+    /// absence means something is genuinely wrong on this system. Those two deserve
+    /// different sentences, and only the second is a bug report.
+    static let minimumSupportedMajor = 27
+
+    /// Whether the framework can be loaded at all, asked without building an instance.
+    ///
+    /// Exists for diagnostics. `prepare()` already decides this, but its answer is only
+    /// reachable through a `MenuBarVisibility`, and the question "does this system have the
+    /// framework?" is the one a user on an older macOS needs answered — it separates "this
+    /// platform has never had it" from "it is here and something else is wrong", and those
+    /// two lead somewhere different. `dlopen` is reference counted, so asking twice is free.
+    static var frameworkIsLoadable: Bool {
+        dlopen(frameworkPath, RTLD_NOW | RTLD_LOCAL) != nil
+    }
+
     /// System item IDs that may stay visible.
     ///
     /// **Only the numbers 0...8 are valid** (battery, Bluetooth, clock, display,
@@ -61,7 +81,7 @@ final class MenuBarVisibility {
 
     private func prepare() {
         guard dlopen(Self.frameworkPath, RTLD_NOW | RTLD_LOCAL) != nil else {
-            unavailableReason = L("reason.noFramework")
+            unavailableReason = Self.missingFrameworkReason()
             return
         }
         guard let libobjc = dlopen("/usr/lib/libobjc.A.dylib", RTLD_NOW),
@@ -83,6 +103,20 @@ final class MenuBarVisibility {
             return
         }
         isAvailable = true
+    }
+
+    /// What to say when the framework could not be loaded.
+    ///
+    /// The old code let a version test upstream answer first, which meant every system below
+    /// the cutoff was told the same thing — "not supported" — and macOS 26 users never saw
+    /// the reason, only a verdict. Asking the version *here*, after the load has already
+    /// failed, is what separates "this platform has no such framework" from "this platform
+    /// should have it and it did not load".
+    private static func missingFrameworkReason() -> String {
+        let major = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        return major < minimumSupportedMajor
+            ? L("reason.unsupportedOS", major)
+            : L("reason.noFramework")
     }
 
     // MARK: - Activation

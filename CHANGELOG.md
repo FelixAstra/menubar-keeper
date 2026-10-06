@@ -4,6 +4,42 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.2] - 2026-10-06
+
+### Fixed
+
+- **A launch that skips auto-fold now says so.** Outside `/Applications` the launch scan returns
+  before it runs — a safety rule, because hiding icons from elsewhere takes the app's own menu bar
+  icon with them — but the only trace it left was a line in the debug log, and reading that needs a
+  marker file in `/tmp`. The window warned about the icon and never about the scan, so "auto-fold
+  does nothing" was unanswerable from inside the app. The mechanism line now names both costs and
+  carries a **Move to Applications…** button, running the same move-and-restart the menu bar menu
+  has always offered.
+- The mechanism line could never draw its second line. It asked for two and set
+  `byTruncatingTail`, which renders one and clips the rest, so the longer messages — the
+  "not in /Applications" one and the "does not look applied" one — were cut mid-sentence with a
+  second line's worth of room sitting unused underneath.
+- **The window told users a system was unsupported without ever checking.** Mechanism
+  availability was answered by `operatingSystemVersion.majorVersion >= 27` — a test about which
+  *discovery* path applies, standing in for a question about whether *hiding* is available. On
+  macOS 26 it returned "no" before the capability probe ran, so the window said the system was not
+  supported and never named a cause; on any system above the cutoff that lacked the framework, the
+  same test would have claimed support. `MenuBarVisibility.prepare()` already resolves the
+  framework, its classes and their selectors at run time and reports *which* is missing, so it is
+  now the only answer. The version is still consulted, but only to explain a failure that has
+  already happened: below 27 the framework has never existed, so its absence is the platform; at
+  27 and above it means something is wrong on that machine, which is a bug report rather than a
+  verdict.
+- The macOS 26 message now says what to do instead of only what is missing, and the README no
+  longer reads `macOS 14+` without qualification — it said a 26 user could run the app and hide
+  icons, and only the second half was true.
+
+### Changed
+
+- The move alert now says what moving fixes, not only what it prevents. Auto-fold being skipped is
+  the half of the problem the user actually runs into; the hidden icon is what they would run into
+  next.
+
 ## [1.5.1] - 2026-10-02
 
 ### Fixed
@@ -318,6 +354,7 @@ First public release.
 - Built-in verification that hiding really took effect, reported in the window.
 - Universal binary (Apple Silicon and Intel), packaged as a `.dmg`.
 
+[1.5.2]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.2
 [1.5.1]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.1
 [1.5.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.5.0
 [1.4.0]: https://github.com/FelixAstra/menubar-keeper/releases/tag/v1.4.0
